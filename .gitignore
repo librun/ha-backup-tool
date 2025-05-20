@@ -8,5 +8,6 @@ build/
 *.tar.gz
 
 /data/
+/source_script/
 
 .DS_Store
