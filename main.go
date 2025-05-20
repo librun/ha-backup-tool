@@ -16,11 +16,12 @@ const (
 )
 
 func main() {
-	cmd := &cli.Command{
-		Name:    "ha-backup-tool",
-		Usage:   "Home Assistant Tool for work with backup",
-		Action:  runDecrypt,
-		Version: AppVersion,
+	app := &cli.Command{
+		Name:                  "ha-backup-tool",
+		Usage:                 "Home Assistant Tool for work with backup",
+		EnableShellCompletion: true,
+		Version:               AppVersion,
+		Action:                runDecrypt,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:     "b",
@@ -46,7 +47,21 @@ func main() {
 		},
 	}
 
-	if err := cmd.Run(context.Background(), os.Args); err != nil {
+	// md, err := docs.ToMarkdown(app)
+	// if err != nil {
+	// 	panic(err)
+	// }
+
+	// fi, err := os.Create("cli-docs.md")
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// defer fi.Close()
+	// if _, err := fi.WriteString("# CLI\n\n" + md); err != nil {
+	// 	panic(err)
+	// }
+
+	if err := app.Run(context.Background(), os.Args); err != nil {
 		log.Fatal(err)
 	}
 }
