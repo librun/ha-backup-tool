@@ -17,6 +17,8 @@ build() {
     local OUTPUT="${BUILD_DIR}/ha-backup-tool_v${VERSION}_${OS}_${ARCH}${EXT}"
     echo "🪚  Building for ${OS} ${ARCH} ..."
     GOOS=${OS} GOARCH=${ARCH} go build -o ${OUTPUT} main.go
+
+    gzip ${OUTPUT}
 }
 
 cleanup

@@ -4,7 +4,8 @@ Tool for work with Home Assistant Backup
 # Install
 
 ## Way 1 - Download binary
-Open [link](https://github.com/librun/ha-backup-tool/releases) choose you platrom and os and download file
+Open [link](https://github.com/librun/ha-backup-tool/releases) choose you OS & platrom and download file
+Unpack file and use
 
 ## Way 2 - Build yourself
 
