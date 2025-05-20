@@ -46,6 +46,13 @@ ha-backup-tool [GLOBAL OPTIONS] [command [COMMAND OPTIONS]] [ARGUMENTS...]
 
 **-p, --password**="": Password for decrypt backup
 
+## Shell Completions
+
+For install completions run command
+```
+ha-backup-tool completion bash
+```
+And read and run instruction
 
 # Related projects
 
