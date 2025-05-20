@@ -4,6 +4,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"io"
 	"sync"
@@ -30,11 +31,17 @@ type Reader struct {
 	r         io.Reader
 	iv        []byte
 	block     cipher.Block
+	size      uint64
 	mode      cipher.BlockMode
 }
 
 // NewAesCbcReader returns an AES-CBC reader.
-func NewReader(r io.Reader, key []byte) (*Reader, error) {
+func NewReader(r io.Reader, passwd string) (*Reader, error) {
+	key, err := PasswordToKey(passwd)
+	if err != nil {
+		return nil, err
+	}
+
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -54,28 +61,13 @@ func (r *Reader) Read(p []byte) (int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	var n int
-	var err error
-
 	if r.beginning {
-		n, err = io.ReadFull(r.r, r.iv)
-		if err != nil {
-			return 0, err
+		if n, err := r.readInfoBytes(); err != nil {
+			return n, err
 		}
-		if n != len(r.iv) {
-			return 0, ErrNotEnoughBytes
-		}
-		r.beginning = false
-
-		r.iv, err = GenerateIv(r.key, r.iv)
-		if err != nil {
-			return 0, err
-		}
-
-		r.mode = cipher.NewCBCDecrypter(r.block, r.iv)
 	}
 
-	n, err = r.r.Read(p)
+	n, err := r.r.Read(p)
 	if err != nil && errors.Is(err, io.EOF) {
 		return 0, err
 	}
@@ -94,6 +86,49 @@ func (r *Reader) Read(p []byte) (int, error) {
 	}
 
 	r.mode.CryptBlocks(run, run)
+
+	return n, err
+}
+
+func (r *Reader) readInfoBytes() (int, error) {
+	n, err := io.ReadFull(r.r, r.iv)
+	if err != nil {
+		return 0, err
+	}
+	if n != len(r.iv) {
+		return 0, ErrNotEnoughBytes
+	}
+	r.beginning = false
+
+	// Securetar added uncrypt info in first 16 bytes
+	if string(r.iv) == SecuretarMagic {
+		rs := make([]byte, r.block.BlockSize())
+
+		n, err = io.ReadFull(r.r, rs)
+		if err != nil {
+			return 0, err
+		}
+		if n != len(rs) {
+			return 0, ErrNotEnoughBytes
+		}
+
+		r.size = binary.BigEndian.Uint64(rs[:8])
+
+		n, err = io.ReadFull(r.r, r.iv)
+		if err != nil {
+			return 0, err
+		}
+		if n != len(r.iv) {
+			return 0, ErrNotEnoughBytes
+		}
+	}
+
+	r.iv, err = GenerateIv(r.key, r.iv)
+	if err != nil {
+		return 0, err
+	}
+
+	r.mode = cipher.NewCBCDecrypter(r.block, r.iv)
 
 	return n, err
 }
