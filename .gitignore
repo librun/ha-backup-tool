@@ -9,5 +9,6 @@ build/
 
 /data/
 /source_script/
+/build/
 
 .DS_Store

@@ -11,11 +11,16 @@ import (
 	"github.com/librun/ha-backup-tool/internal/utils"
 )
 
+const (
+	AppVersion = "1.0.prerelease"
+)
+
 func main() {
 	cmd := &cli.Command{
-		Name:   "ha-decryptu-backup-tool",
-		Usage:  "Home assistant unpack encrypt backup",
-		Action: runDecrypt,
+		Name:    "ha-backup-tool",
+		Usage:   "Home Assistant Tool for work with backup",
+		Action:  runDecrypt,
+		Version: AppVersion,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:     "b",
