@@ -24,9 +24,9 @@ func main() {
 		Action:                runDecrypt,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:     "b",
-				Aliases:  []string{"backup"},
-				Usage:    "Filepath for backup home assistant in tar format",
+				Name:    "b",
+				Aliases: []string{"backup"},
+				Usage:   "Filepath for backup home assistant in tar format",
 			},
 			&cli.StringFlag{
 				Name:    "e",
@@ -66,19 +66,19 @@ func main() {
 }
 
 func runDecrypt(_ context.Context, c *cli.Command) error {
-	key, err := utils.GetKey(c.String("e"), c.String("p"))
-	if err != nil {
-		return err
-	}
-
 	file := c.String("b")
-	if err = utils.ValidateTarFile(file); err != nil {
+	if err := utils.ValidateTarFile(file); err != nil {
 		fmt.Println("❌ Error: No .tar valid!")
 
 		return err
 	}
 
 	fmt.Printf("📁 Found %s backup file(s) to process\n", file)
+
+	key, err := utils.GetKey(c.String("e"), c.String("p"))
+	if err != nil {
+		return err
+	}
 
 	successCount, err := utils.Extract(file, key, c.String("o"))
 	if err != nil {

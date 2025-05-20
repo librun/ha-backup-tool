@@ -51,7 +51,7 @@ ha-backup-tool [GLOBAL OPTIONS] [command [COMMAND OPTIONS]] [ARGUMENTS...]
 
 For install completions run command
 ```
-ha-backup-tool completion bash
+ha-backup-tool completion --help
 ```
 And read and run instruction
 
