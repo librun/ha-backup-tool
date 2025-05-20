@@ -1,0 +1,183 @@
+version: "2"
+linters:
+  default: none
+  enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - cyclop
+    - dupl
+    - durationcheck
+    - err113
+    - errcheck
+    - errname
+    - errorlint
+    - exhaustive
+    - forbidigo
+    - funlen
+    - gochecknoglobals
+    - gochecknoinits
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    - godox
+    - gomoddirectives
+    - gomodguard
+    - goprintffuncname
+    - gosec
+    - govet
+    - ineffassign
+    - lll
+    - loggercheck
+    - makezero
+    - misspell
+    - mnd
+    - nakedret
+    - nestif
+    - nilerr
+    - nilnil
+    - nlreturn
+    - noctx
+    - nolintlint
+    - nonamedreturns
+    - nosprintfhostport
+    - predeclared
+    - promlinter
+    - reassign
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - staticcheck
+    - testableexamples
+    - testpackage
+    - tparallel
+    - unconvert
+    - unparam
+    - unused
+    - usestdlibvars
+    - wastedassign
+    - whitespace
+  settings:
+    cyclop:
+      max-complexity: 15
+      package-average: 10
+    errcheck:
+      check-type-assertions: true
+    exhaustive:
+      check:
+        - switch
+        - map
+    funlen:
+      lines: 100
+      statements: 50
+    gocognit:
+      min-complexity: 20
+    gocritic:
+      settings:
+        captLocal:
+          paramsOnly: false
+        underef:
+          skipRecvDeref: false
+    godox:
+      keywords:
+        - BUG
+        - FIXME
+    gomodguard:
+      blocked:
+        modules:
+          - github.com/golang/protobuf:
+              recommendations:
+                - google.golang.org/protobuf
+              reason: see https://developers.google.com/protocol-buffers/docs/reference/go/faq#modules
+          - github.com/satori/go.uuid:
+              recommendations:
+                - github.com/google/uuid
+              reason: satori's package is not maintained
+          - github.com/gofrs/uuid:
+              recommendations:
+                - github.com/google/uuid
+              reason: 'see recommendation from dev-infra team: https://confluence.gtforge.com/x/gQI6Aw'
+    govet:
+      disable:
+        - fieldalignment
+      enable-all: true
+      settings:
+        shadow:
+          strict: true
+    mnd:
+      ignored-numbers:
+        - "0666"
+        - "0755"
+        - "10"
+      ignored-functions:
+        - os.Chmod
+        - os.Mkdir
+        - os.MkdirAll
+        - os.OpenFile
+        - os.WriteFile
+        - prometheus.ExponentialBuckets
+        - prometheus.ExponentialBucketsRange
+        - prometheus.LinearBuckets
+        - strconv.FormatFloat
+        - strconv.FormatInt
+        - strconv.FormatUint
+        - strconv.ParseFloat
+        - strconv.ParseInt
+        - strconv.ParseUint
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+      allow-no-explanation:
+        - funlen
+        - gocognit
+        - lll
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - lll
+        source: ^//\s*go:generate\s
+      - linters:
+          - godot
+        source: (noinspection|TODO)
+      - linters:
+          - gocritic
+        source: //noinspection
+      - linters:
+          - unused
+        source: ^\s*tableName\s+struct{}
+      - linters:
+          - gochecknoglobals
+        path: main\.go
+        source: ^\s*var\s+ApplicationVersion\s*=
+      - linters:
+          - bodyclose
+          - dupl
+          - funlen
+          - goconst
+          - gosec
+          - noctx
+          - wrapcheck
+        path: _test\.go
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-same-issues: 50
+formatters:
+  enable:
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

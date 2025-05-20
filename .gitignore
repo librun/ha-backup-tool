@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+dist/
+build/
+*.tar
+*.tar.gz
+
+/data/
+
+.DS_Store
