@@ -27,7 +27,6 @@ func main() {
 				Name:     "b",
 				Aliases:  []string{"backup"},
 				Usage:    "Filepath for backup home assistant in tar format",
-				Required: true,
 			},
 			&cli.StringFlag{
 				Name:    "e",
