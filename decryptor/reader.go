@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	SECURETAR_MAGIC = "SecureTar\x02\x00\x00\x00\x00\x00\x00"
+	SecuretarMagic = "SecureTar\x02\x00\x00\x00\x00\x00\x00"
 )
 
 var (
@@ -50,64 +50,76 @@ func NewReader(r io.Reader, key []byte) (*Reader, error) {
 }
 
 // Read implements io.Reader interface,
-func (r *Reader) Read(p []byte) (n int, err error) {
+func (r *Reader) Read(p []byte) (int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
+	var n int
+	var err error
 
 	if r.beginning {
 		n, err = io.ReadFull(r.r, r.iv)
 		if err != nil {
-			n = 0 // Force caller reader (aka gzip.Reader) to catch the error
-			return
+			return 0, err
 		}
 		if n != len(r.iv) {
-			n = 0 // Force caller reader (aka gzip.Reader) to catch the error
-			err = ErrNotEnoughBytes
-			return
+			return 0, ErrNotEnoughBytes
 		}
 		r.beginning = false
 
-		r.iv, err = generateIv(r.key, r.iv)
+		r.iv, err = GenerateIv(r.key, r.iv)
 		if err != nil {
-			n = 0 // Force caller reader (aka gzip.Reader) to catch the error
-			return
+			return 0, err
 		}
 
 		r.mode = cipher.NewCBCDecrypter(r.block, r.iv)
 	}
 
 	n, err = r.r.Read(p)
-	if err != nil && err != io.EOF {
-		n = 0 // Force caller reader (aka gzip.Reader) to catch the error
-		return
+	if err != nil && errors.Is(err, io.EOF) {
+		return 0, err
 	}
 
 	if n == 0 {
 		// EOF
-		return
+		return 0, nil
 	}
 
 	run := p[:n]
 	if len(run) < r.block.BlockSize() {
-		err = ErrTooShort
-		return
+		return n, ErrTooShort
 	}
 	if len(run)%r.block.BlockSize() != 0 {
-		err = ErrModulo
-		return
+		return n, ErrModulo
 	}
 
 	r.mode.CryptBlocks(run, run)
 
-	return
+	return n, err
 }
 
-// generateIv - Generate initialization vector.
-func generateIv(key, salt []byte) ([]byte, error) {
+// GenerateIv - Generate initialization vector.
+func GenerateIv(key, salt []byte) ([]byte, error) {
 	var b []byte
 
 	b = append(b, key...)
 	b = append(b, salt...)
+
+	for range 100 {
+		h := sha256.New()
+		if _, err := h.Write(b); err != nil {
+			return nil, err
+		}
+
+		b = h.Sum(nil)
+	}
+
+	return b[:aes.BlockSize], nil
+}
+
+// PasswordToKey - Convert password/key to encryption key.
+func PasswordToKey(password string) ([]byte, error) {
+	b := []byte(password)
 
 	for range 100 {
 		h := sha256.New()

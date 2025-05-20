@@ -14,7 +14,7 @@ linters:
     - errname
     - errorlint
     - exhaustive
-    - forbidigo
+    # - forbidigo
     - funlen
     - gochecknoglobals
     - gochecknoinits

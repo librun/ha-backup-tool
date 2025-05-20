@@ -5,8 +5,6 @@ import (
 	"bufio"
 	"compress/gzip"
 	"context"
-	"crypto/aes"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -72,14 +70,14 @@ func main() {
 	}
 }
 
-func runDecrypt(ctx context.Context, c *cli.Command) error {
+func runDecrypt(_ context.Context, c *cli.Command) error {
 	key, err := getKey(c.String("e"), c.String("p"))
 	if err != nil {
 		return err
 	}
 
 	file := c.String("b")
-	if err := validateTarFile(file); err != nil {
+	if err = validateTarFile(file); err != nil {
 		fmt.Println("❌ Error: No .tar valid!")
 
 		return err
@@ -151,6 +149,7 @@ func getKey(e, p string) (string, error) {
 
 			key = t
 			fmt.Println("✅ Key format verified")
+
 			break
 		}
 	}
@@ -233,20 +232,20 @@ func extract(file, key, outputDir string) (int, error) {
 	for _, st := range sts {
 		fn := filepath.Base(st)
 		fmt.Printf("🔓 Decrypting %s...\n", fn)
-		if err := extractSecureTar(st, key); err != nil {
+		if err = extractSecureTar(st, key); err != nil {
 			lastErr = err
 
 			continue
 		}
 
 		// Remove the encrypted file after successful extraction
-		if err := os.Remove(st); err != nil {
+		if err = os.Remove(st); err != nil {
 			lastErr = err
 
 			continue
 		}
 
-		successCount += 1
+		successCount++
 	}
 
 	return successCount, lastErr
@@ -258,7 +257,7 @@ func extractBackup(file, outputDir string) ([]string, error) {
 		return nil, err
 	}
 	defer func() {
-		if err := r.Close(); err != nil {
+		if err = r.Close(); err != nil {
 			panic(err)
 		}
 	}()
@@ -272,11 +271,11 @@ func extractBackup(file, outputDir string) ([]string, error) {
 	}
 
 	if _, errS := os.Stat(dir); os.IsNotExist(errS) {
-		if err := os.Mkdir(dir, unpackDirMod); err != nil {
+		if err = os.Mkdir(dir, unpackDirMod); err != nil {
 			return nil, err
 		}
 	} else {
-		return nil, fmt.Errorf("Dir %s is exists", dir)
+		return nil, fmt.Errorf("dir %s is exists", dir) //nolint:err113 // Dynamic error
 	}
 
 	return extractTar(r, dir)
@@ -287,10 +286,10 @@ func extractTar(r io.Reader, outputDir string) ([]string, error) {
 
 	var fl []string
 
-	for true {
+	for {
 		header, err := tarReader.Next()
 
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 
@@ -302,20 +301,21 @@ func extractTar(r io.Reader, outputDir string) ([]string, error) {
 
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err := os.Mkdir(p, unpackDirMod); err != nil {
+			if err = os.Mkdir(p, unpackDirMod); err != nil {
 				return nil, err
 			}
 		case tar.TypeReg:
-			outFile, err := os.Create(p)
-			if err != nil {
-				return nil, err
+			outFile, errO := os.Create(p)
+			if errO != nil {
+				return nil, errO
 			}
-			if _, err := io.Copy(outFile, tarReader); err != nil {
+			if _, err = io.Copy(outFile, tarReader); err != nil {
 				return nil, err
 			}
 			outFile.Close()
 
 		default:
+			//nolint:err113 // Dynamic error
 			return nil, fmt.Errorf("ExtractTarGz: uknown type: %b in %s", header.Typeflag, header.Name)
 		}
 
@@ -331,13 +331,7 @@ func filterTarGz(fl []string) []string {
 	for _, f := range fl {
 		bn := filepath.Base(f)
 
-		var ext = ""
-
-		if sl := strings.Split(bn, "."); len(sl) > 2 {
-			ext = "." + sl[len(sl)-2] + "." + sl[len(sl)-1]
-		}
-
-		if strings.ToLower(ext) == extTarGz {
+		if strings.HasSuffix(strings.ToLower(bn), extTarGz) {
 			fltg = append(fltg, f)
 		}
 	}
@@ -346,14 +340,17 @@ func filterTarGz(fl []string) []string {
 }
 
 func extractSecureTar(file, passwd string) error {
-	key, err := passwordToKey(passwd)
+	key, err := decryptor.PasswordToKey(passwd)
 	if err != nil {
 		return err
 	}
 
-	f, err := os.Open(file)
+	f, errO := os.Open(file)
+	if errO != nil {
+		return errO
+	}
 	defer func() {
-		if err := f.Close(); err != nil {
+		if err = f.Close(); err != nil {
 			panic(err)
 		}
 	}()
@@ -363,7 +360,7 @@ func extractSecureTar(file, passwd string) error {
 		return err
 	}
 
-	if err := extractTarGz(r, file, ""); err != nil {
+	if err = extractTarGz(r, file, ""); err != nil {
 		fmt.Println("❌ Error: Unable to extract SecureTar - possible wrong password or file is not encrypted")
 
 		return err
@@ -389,20 +386,4 @@ func extractTarGz(r io.Reader, filename, outputDir string) error {
 	_, err = extractTar(rg, dir)
 
 	return err
-}
-
-// passwordToKey - Convert password/key to encryption key.
-func passwordToKey(password string) ([]byte, error) {
-	b := []byte(password)
-
-	for range 100 {
-		h := sha256.New()
-		if _, err := h.Write(b); err != nil {
-			return nil, err
-		}
-
-		b = h.Sum(nil)
-	}
-
-	return b[:aes.BlockSize], nil
 }
