@@ -26,6 +26,17 @@ func GetKey(e, p string) (string, error) {
 	var key string
 
 	switch {
+	case p != "":
+		p = strings.TrimSpace(p)
+
+		if !keyValidate(p) {
+			fmt.Println("❌ Invalid key format.")
+
+			return "", ErrPasswordNotValid
+		}
+
+		key = p
+		fmt.Println("✅ Key format verified")
 	case e != "":
 		t, err := extractKeyFromKit(e)
 		if err != nil {
@@ -39,17 +50,6 @@ func GetKey(e, p string) (string, error) {
 		key = t
 
 		fmt.Println("✅ Found encryption key in " + key)
-	case p != "":
-		p = strings.TrimSpace(p)
-
-		if !keyValidate(p) {
-			fmt.Println("❌ Invalid key format.")
-
-			return "", ErrPasswordNotValid
-		}
-
-		key = p
-		fmt.Println("✅ Key format verified")
 	default:
 		fmt.Println("\nPlease enter your encryption key manually.")
 		fmt.Println("It should be in the format: XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX")

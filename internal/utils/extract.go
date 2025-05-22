@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/librun/ha-backup-tool/internal/decryptor"
 )
@@ -16,7 +17,7 @@ import (
 const (
 	extTar       = ".tar"
 	extTarGz     = ".tar.gz"
-	unpackDirMod = 0755
+	UnpackDirMod = 0755
 
 	maxDecompressionSize int64 = 2 * 1025 * 1024 * 1024
 )
@@ -24,49 +25,51 @@ const (
 var (
 	ErrMaxDecompressionSize = fmt.Errorf("size of decoded data exceeds allowed size %d", maxDecompressionSize)
 	ErrFileNotValid         = errors.New("file not valid")
+	ErrNotFullUnpack        = errors.New("one or more files not success unpack")
 )
 
 // Extract start unpack archive.
-func Extract(file, key, outputDir string) (int, error) {
+func Extract(file, key, outputDir string, includeBackupName bool) error {
 	var successCount int
 
 	fmt.Printf("📦 Extracting %s...\n", file)
-	d, err := ExtractBackup(file, outputDir)
+	d, err := ExtractBackup(file, outputDir, includeBackupName)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
-	// Look for encrypted tar.gz files in the extracted directory
+	// Look for tar.gz files in the extracted directory
 	sts := filterTarGz(d)
 	if len(sts) == 0 {
-		return 0, nil
+		return nil
 	}
 
 	var lastErr error
+
+	wg := sync.WaitGroup{}
 	for _, st := range sts {
-		fn := filepath.Base(st)
-		fmt.Printf("🔓 Decrypting %s...\n", fn)
-		if err = extractSecureTar(st, key); err != nil {
-			lastErr = err
+		wg.Add(1)
 
-			continue
-		}
+		go func() {
+			defer wg.Done()
 
-		// Remove the encrypted file after successful extraction
-		if err = os.Remove(st); err != nil {
-			lastErr = err
+			if errD := decryptArchive(file, st, key); errD != nil {
+				lastErr = errD
 
-			continue
-		}
+				return
+			}
 
-		successCount++
+			successCount++
+		}()
 	}
 
-	return successCount, lastErr
+	wg.Wait()
+
+	return lastErr
 }
 
 // ExtractBackup - unpack base tar file.
-func ExtractBackup(file, outputDir string) ([]string, error) {
+func ExtractBackup(file, outputDir string, includeBackupName bool) ([]string, error) {
 	r, err := os.Open(file)
 	if err != nil {
 		return nil, err
@@ -78,15 +81,15 @@ func ExtractBackup(file, outputDir string) ([]string, error) {
 	}()
 
 	dir := outputDir
-	if dir == "" {
-		fn := filepath.Base(file)
-		fn, _ = strings.CutSuffix(fn, extTarGz)
-		fn, _ = strings.CutSuffix(fn, extTar)
-		dir = filepath.Join(filepath.Dir(file), fn)
+
+	if includeBackupName && dir != "" {
+		dir = filepath.Join(dir, getBaseNameArchive(file))
+	} else if dir == "" {
+		dir = filepath.Join(filepath.Dir(file), getBaseNameArchive(file))
 	}
 
 	if _, errS := os.Stat(dir); os.IsNotExist(errS) {
-		if err = os.Mkdir(dir, unpackDirMod); err != nil {
+		if err = os.Mkdir(dir, UnpackDirMod); err != nil {
 			return nil, err
 		}
 	} else {
@@ -137,7 +140,7 @@ func extractTar(r io.Reader, outputDir string) ([]string, error) {
 
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err = os.Mkdir(p, unpackDirMod); err != nil {
+			if err = os.Mkdir(p, UnpackDirMod); err != nil {
 				return nil, err
 			}
 		case tar.TypeReg:
@@ -178,8 +181,23 @@ func filterTarGz(fl []string) []string {
 	return fltg
 }
 
-func extractSecureTar(file, passwd string) error {
-	f, err := os.Open(file)
+func decryptArchive(archName, fpath, key string) error {
+	if err := extractSecureTar(archName, fpath, key); err != nil {
+		return err
+	}
+
+	// Remove the encrypted file after successful extraction
+	if err := os.Remove(fpath); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func extractSecureTar(archName, filename, passwd string) error {
+	fn := filepath.Base(filename)
+
+	f, err := os.Open(filename)
 	if err != nil {
 		return err
 	}
@@ -194,11 +212,13 @@ func extractSecureTar(file, passwd string) error {
 		return err
 	}
 
-	if err = extractTarGz(r, file, ""); err != nil {
-		fmt.Println("❌ Error: Unable to extract SecureTar - possible wrong password or file is not encrypted")
+	if err = extractTarGz(r, filename, ""); err != nil {
+		fmt.Printf("❌ Error: Unable to extract %s/%s - possible wrong password or broken file\n", archName, fn)
 
 		return err
 	}
+
+	fmt.Printf("🔓 Decrypt success %s/%s... \n", archName, fn)
 
 	return nil
 }
@@ -212,9 +232,7 @@ func extractTarGz(r io.Reader, filename, outputDir string) error {
 
 	dir := outputDir
 	if dir == "" {
-		fn := filepath.Base(filename)
-		fn, _ = strings.CutSuffix(fn, extTarGz)
-		dir = filepath.Join(filepath.Dir(filename), fn)
+		dir = filepath.Join(filepath.Dir(filename), getBaseNameArchive(filename))
 	}
 
 	_, err = extractTar(rg, dir)
@@ -222,7 +240,7 @@ func extractTarGz(r io.Reader, filename, outputDir string) error {
 	return err
 }
 
-// Sanitize archive file pathing from "G305: Zip Slip vulnerability"
+// sanitize archive file pathing from "G305: Zip Slip vulnerability"
 func sanitizeArchivePath(d, t string) (string, error) {
 	v := filepath.Join(d, t)
 	if strings.HasPrefix(v, filepath.Clean(d)) {
@@ -231,4 +249,12 @@ func sanitizeArchivePath(d, t string) (string, error) {
 
 	//nolint:err113 // Dynamic error
 	return "", fmt.Errorf("%s: %s", "content filepath is tainted", t)
+}
+
+func getBaseNameArchive(fpath string) string {
+	fn := filepath.Base(fpath)
+	fn, _ = strings.CutSuffix(fn, extTarGz)
+	fn, _ = strings.CutSuffix(fn, extTar)
+
+	return fn
 }
