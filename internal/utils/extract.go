@@ -28,7 +28,7 @@ var (
 	ErrNotFullUnpack        = errors.New("one or more files not success unpack")
 )
 
-// Extract start unpack archive.
+// Extract - start unpack archive.
 func Extract(file, key, outputDir string, includeBackupName bool) error {
 	var successCount int
 
@@ -99,6 +99,7 @@ func ExtractBackup(file, outputDir string, includeBackupName bool) ([]string, er
 	return extractTar(r, dir)
 }
 
+// ValidateTarFile - validate tar file is exist and other.
 func ValidateTarFile(p string) error {
 	s, err := os.Stat(p)
 	if err != nil {
@@ -251,6 +252,7 @@ func sanitizeArchivePath(d, t string) (string, error) {
 	return "", fmt.Errorf("%s: %s", "content filepath is tainted", t)
 }
 
+// getBaseNameArchive - get base archive name without ext and location.
 func getBaseNameArchive(fpath string) string {
 	fn := filepath.Base(fpath)
 	fn, _ = strings.CutSuffix(fn, extTarGz)

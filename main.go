@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/urfave/cli/v3"
+	// "github.com/urfave/cli-docs/v3"
 
 	"github.com/librun/ha-backup-tool/internal/utils"
 )
@@ -66,7 +67,7 @@ func main() {
 	}
 }
 
-// GenerateDocs - function for generate docs
+// // generateDocs - function for generate docs
 // func generateDocs(app *cli.Command) {
 // 	md, err := docs.ToMarkdown(app)
 // 	if err != nil {

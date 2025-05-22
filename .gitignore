@@ -10,5 +10,6 @@ build/
 /data/
 /source_script/
 /build/
+/cli-docs.md
 
 .DS_Store

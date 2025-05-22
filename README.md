@@ -25,10 +25,8 @@ ha-backup-tool - Home Assistant Tool for work with backup
 ha-backup-tool
 
 ```
-[-b|--backup]=[value]
-[-e|--emergency]=[value]
-[-o|--output]=[value]
-[-p|--password]=[value]
+[--emergency|-e]=[value]
+[--password|-p]=[value]
 ```
 
 **Usage**:
@@ -39,13 +37,35 @@ ha-backup-tool [GLOBAL OPTIONS] [command [COMMAND OPTIONS]] [ARGUMENTS...]
 
 ## GLOBAL OPTIONS
 
-**-b, --backup**="": Filepath for backup home assistant in tar format
+**--emergency, -e**="": Filepath for emergency text file
 
-**-e, --emergency**="": Filepath for emergency text file
+**--password, -p**="": Password for decrypt backup
+
+
+## COMMANDS
+
+### extract, e, unpack, u
+
+command for decrypt and extract one or more backups
+
+**Usage**:
+    ha-backup-tool extract [command [command options]] files for extract backup home assistant in tar format
+
+#### OPTIONS
 
 **-o, --output**="": Directory for unpack files
 
-**-p, --password**="": Password for decrypt backup
+#### Example
+
+Extract N archives by password to same location current files
+```bash
+ha-backup-tool extract -p XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX dir1/backup1.tar dir2/backup2.tar dir3/backupN.tar
+```
+
+Extract N archives by emergency file to different location dir
+```bash
+ha-backup-tool extract -e dir/emergency_file.txt -o dir/extract_backup dir1/backup1.tar dir2/backup2.tar dir3/backupN.tar
+```
 
 ## Shell Completions
 
