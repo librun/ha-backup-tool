@@ -50,12 +50,12 @@ func main() {
 					&cli.StringFlag{
 						Name:    "include",
 						Aliases: []string{"i"},
-						Usage:   "Include files split by ,",
+						Usage:   "Include files",
 					},
 					&cli.StringFlag{
 						Name:    "exclude",
 						Aliases: []string{"e"},
-						Usage:   "Exclude files split by ,",
+						Usage:   "Exclude files",
 					},
 					&cli.StringFlag{
 						Name:    "output",
