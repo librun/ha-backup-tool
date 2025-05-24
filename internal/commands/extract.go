@@ -1,3 +1,4 @@
+//nolint:cyclop // new package with only one function
 package commands
 
 import (
@@ -7,7 +8,6 @@ import (
 	"sync"
 
 	"github.com/urfave/cli/v3"
-	// "github.com/urfave/cli-docs/v3"
 
 	"github.com/librun/ha-backup-tool/internal/utils"
 )
@@ -18,6 +18,8 @@ func Extract(_ context.Context, c *cli.Command) error {
 	var e = c.String("emergency")
 	var p = c.String("password")
 	var fs = c.StringArgs("backups")
+	var ic = c.String("include")
+	var ec = c.String("exclude")
 
 	key, err := utils.GetKey(e, p)
 	if err != nil {
@@ -56,7 +58,7 @@ func Extract(_ context.Context, c *cli.Command) error {
 				return
 			}
 
-			if er := utils.Extract(f, key, o, m); er != nil {
+			if er := utils.Extract(f, key, o, ic, ec, m); er != nil {
 				fmt.Printf("\n❌ Error processing %s: %s\n", f, er)
 
 				return

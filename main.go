@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	AppVersion = "1.1.0"
+	AppVersion = "1.2.0"
 )
 
 func main() {
@@ -49,12 +49,12 @@ func main() {
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:    "include",
-						Aliases: []string{"i"},
+						Aliases: []string{"ic"},
 						Usage:   "Include files",
 					},
 					&cli.StringFlag{
 						Name:    "exclude",
-						Aliases: []string{"e"},
+						Aliases: []string{"ec"},
 						Usage:   "Exclude files",
 					},
 					&cli.StringFlag{
