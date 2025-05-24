@@ -34,37 +34,7 @@ func main() {
 			},
 		},
 		Commands: []*cli.Command{
-			{
-				Name:    "extract",
-				Aliases: []string{"unpack"},
-				Usage:   "command for decrypt and extract one or more backups",
-				Arguments: []cli.Argument{
-					&cli.StringArgs{
-						Name:      "backups",
-						UsageText: "files for extract backup home assistant in tar format",
-						Min:       1,
-						Max:       -1,
-					},
-				},
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:    "include",
-						Aliases: []string{"ic"},
-						Usage:   "Include files",
-					},
-					&cli.StringFlag{
-						Name:    "exclude",
-						Aliases: []string{"ec"},
-						Usage:   "Exclude files",
-					},
-					&cli.StringFlag{
-						Name:    "output",
-						Aliases: []string{"o"},
-						Usage:   "Directory for unpack files",
-					},
-				},
-				Action: commands.Extract,
-			},
+			commands.Extract(),
 		},
 	}
 

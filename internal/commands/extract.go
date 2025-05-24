@@ -1,4 +1,3 @@
-//nolint:cyclop // new package with only one function
 package commands
 
 import (
@@ -12,8 +11,43 @@ import (
 	"github.com/librun/ha-backup-tool/internal/utils"
 )
 
-// Extract - command for extract backups.
-func Extract(_ context.Context, c *cli.Command) error {
+// Extract - command for extract archive.
+func Extract() *cli.Command {
+	return &cli.Command{
+		Name:    "extract",
+		Aliases: []string{"unpack"},
+		Usage:   "command for decrypt and extract one or more backups",
+		Arguments: []cli.Argument{
+			&cli.StringArgs{
+				Name:      "backups",
+				UsageText: "files for extract backup home assistant in tar format",
+				Min:       1,
+				Max:       -1,
+			},
+		},
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "include",
+				Aliases: []string{"ic"},
+				Usage:   "Include files",
+			},
+			&cli.StringFlag{
+				Name:    "exclude",
+				Aliases: []string{"ec"},
+				Usage:   "Exclude files",
+			},
+			&cli.StringFlag{
+				Name:    "output",
+				Aliases: []string{"o"},
+				Usage:   "Directory for unpack files",
+			},
+		},
+		Action: extractAction,
+	}
+}
+
+// extractAction - command for extract backups.
+func extractAction(_ context.Context, c *cli.Command) error {
 	var o = c.String("output")
 	var e = c.String("emergency")
 	var p = c.String("password")
