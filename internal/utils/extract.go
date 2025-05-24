@@ -27,8 +27,6 @@ var (
 	ErrMaxDecompressionSize = fmt.Errorf("size of decoded data exceeds allowed size %d", maxDecompressionSize)
 	ErrFileNotValid         = errors.New("file not valid")
 	ErrNotFullUnpack        = errors.New("one or more files not success unpack")
-
-	regexpAllFiles = regexp.MustCompile(".*")
 )
 
 // Extract - start unpack archive.
@@ -237,7 +235,7 @@ func extractTarGz(r io.Reader, filename, outputDir string) error {
 		dir = filepath.Join(filepath.Dir(filename), getBaseNameArchive(filename))
 	}
 
-	_, err = extractTar(rg, dir, []*regexp.Regexp{regexpAllFiles}, nil)
+	_, err = extractTar(rg, dir, nil, nil)
 
 	return err
 }
@@ -284,9 +282,7 @@ func parseIncudeExclude(include, exclude string) ([]*regexp.Regexp, []*regexp.Re
 	var ic []*regexp.Regexp
 	var ec []*regexp.Regexp
 
-	if include == "" {
-		ic = append(ic, regexpAllFiles)
-	} else {
+	if include != "" {
 		for _, i := range strings.Split(include, ",") {
 			r := strings.ReplaceAll(i, "*", ".*")
 			ic = append(ic, regexp.MustCompile("^"+r+"$"))
@@ -304,17 +300,20 @@ func parseIncudeExclude(include, exclude string) ([]*regexp.Regexp, []*regexp.Re
 }
 
 func checkIncludeOrExcludeFile(fileName string, include, exclude []*regexp.Regexp) bool {
-	fi := false
-	for _, i := range include {
-		if i.MatchString(fileName) {
-			fi = true
+	// if not include all
+	if include != nil {
+		fi := false
+		for _, i := range include {
+			if i.MatchString(fileName) {
+				fi = true
 
-			break
+				break
+			}
 		}
-	}
 
-	if !fi {
-		return false
+		if !fi {
+			return false
+		}
 	}
 
 	fe := false
