@@ -44,7 +44,7 @@ ha-backup-tool [GLOBAL OPTIONS] [command [COMMAND OPTIONS]] [ARGUMENTS...]
 
 ## COMMANDS
 
-### extract, e, unpack, u
+### extract, unpack
 
 command for decrypt and extract one or more backups
 
@@ -53,10 +53,15 @@ command for decrypt and extract one or more backups
 
 #### OPTIONS
 
-**-o, --output**="": Directory for unpack files
+**--exclude, --ec**="": Exclude files (split value by ,)
+
+**--include, --ic**="": Include files (split value by ,)
+
+**--output, -o**="": Directory for unpack files
 
 #### Example
 
+##### Extract full
 Extract N archives by password to same location current files
 ```bash
 ha-backup-tool extract -p XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX dir1/backup1.tar dir2/backup2.tar dir3/backupN.tar
@@ -65,6 +70,27 @@ ha-backup-tool extract -p XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX dir1/backup1.tar di
 Extract N archives by emergency file to different location dir
 ```bash
 ha-backup-tool extract -e dir/emergency_file.txt -o dir/extract_backup dir1/backup1.tar dir2/backup2.tar dir3/backupN.tar
+```
+
+##### Extract part
+Extract only media archive:
+```bash
+ha-backup-tool extract -e dir/emergency_file.txt -ic media.tar.gz dir1/backup1.tar
+```
+
+extract archive whose file name starts with core:
+```bash
+ha-backup-tool extract -e dir/emergency_file.txt -ic core* dir1/backup1.tar
+```
+
+Extract archive whose file name have influxdb
+```bash
+ha-backup-tool extract -e dir/emergency_file.txt -ic *influxdb* dir1/backup1.tar
+```
+
+extract archive whose file name starts with core and exclude archive whose file name end with server.tar.gz
+```bash
+ha-backup-tool extract -e dir/emergency_file.txt -ic core* -ec *server.tar.gz dir1/backup1.tar
 ```
 
 ## Shell Completions

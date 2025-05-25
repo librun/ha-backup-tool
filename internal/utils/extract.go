@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -29,11 +30,11 @@ var (
 )
 
 // Extract - start unpack archive.
-func Extract(file, key, outputDir string, includeBackupName bool) error {
+func Extract(file, key, outputDir, include, exclude string, includeBackupName bool) error {
 	var successCount int
 
 	fmt.Printf("📦 Extracting %s...\n", file)
-	d, err := ExtractBackup(file, outputDir, includeBackupName)
+	d, err := ExtractBackup(file, outputDir, include, exclude, includeBackupName)
 	if err != nil {
 		return err
 	}
@@ -69,7 +70,7 @@ func Extract(file, key, outputDir string, includeBackupName bool) error {
 }
 
 // ExtractBackup - unpack base tar file.
-func ExtractBackup(file, outputDir string, includeBackupName bool) ([]string, error) {
+func ExtractBackup(file, outputDir, include, exclude string, includeBackupName bool) ([]string, error) {
 	r, err := os.Open(file)
 	if err != nil {
 		return nil, err
@@ -96,7 +97,9 @@ func ExtractBackup(file, outputDir string, includeBackupName bool) ([]string, er
 		return nil, fmt.Errorf("dir %s is exists", dir) //nolint:err113 // Dynamic error
 	}
 
-	return extractTar(r, dir)
+	ic, ec := parseIncudeExclude(include, exclude)
+
+	return extractTar(r, dir, ic, ec)
 }
 
 // ValidateTarFile - validate tar file is exist and other.
@@ -118,7 +121,7 @@ func ValidateTarFile(p string) error {
 	return nil
 }
 
-func extractTar(r io.Reader, outputDir string) ([]string, error) {
+func extractTar(r io.Reader, outputDir string, include, exclude []*regexp.Regexp) ([]string, error) {
 	tarReader := tar.NewReader(r)
 
 	var fl []string
@@ -134,6 +137,10 @@ func extractTar(r io.Reader, outputDir string) ([]string, error) {
 			return nil, err
 		}
 
+		if !checkIncludeOrExcludeFile(header.Name, include, exclude) {
+			continue
+		}
+
 		p, errS := sanitizeArchivePath(outputDir, header.Name)
 		if errS != nil {
 			return nil, errS
@@ -145,17 +152,9 @@ func extractTar(r io.Reader, outputDir string) ([]string, error) {
 				return nil, err
 			}
 		case tar.TypeReg:
-			outFile, errO := os.Create(p)
-			if errO != nil {
-				return nil, errO
+			if err = copyFile(p, tarReader); err != nil {
+				return nil, err
 			}
-			written, errW := io.CopyN(outFile, tarReader, maxDecompressionSize)
-			if errW != nil && !errors.Is(errW, io.EOF) {
-				return nil, errW
-			} else if written == maxDecompressionSize {
-				return nil, ErrMaxDecompressionSize
-			}
-			outFile.Close()
 
 		default:
 			//nolint:err113 // Dynamic error
@@ -236,9 +235,27 @@ func extractTarGz(r io.Reader, filename, outputDir string) error {
 		dir = filepath.Join(filepath.Dir(filename), getBaseNameArchive(filename))
 	}
 
-	_, err = extractTar(rg, dir)
+	_, err = extractTar(rg, dir, nil, nil)
 
 	return err
+}
+
+func copyFile(fpath string, r io.Reader) error {
+	outFile, err := os.Create(fpath)
+	if err != nil {
+		return err
+	}
+
+	defer outFile.Close()
+
+	written, errW := io.CopyN(outFile, r, maxDecompressionSize)
+	if errW != nil && !errors.Is(errW, io.EOF) {
+		return errW
+	} else if written == maxDecompressionSize {
+		return ErrMaxDecompressionSize
+	}
+
+	return nil
 }
 
 // sanitize archive file pathing from "G305: Zip Slip vulnerability"
@@ -259,4 +276,54 @@ func getBaseNameArchive(fpath string) string {
 	fn, _ = strings.CutSuffix(fn, extTar)
 
 	return fn
+}
+
+func parseIncudeExclude(include, exclude string) ([]*regexp.Regexp, []*regexp.Regexp) {
+	var ic []*regexp.Regexp
+	var ec []*regexp.Regexp
+
+	if include != "" {
+		for _, i := range strings.Split(include, ",") {
+			r := strings.ReplaceAll(i, "*", ".*")
+			ic = append(ic, regexp.MustCompile("^"+r+"$"))
+		}
+	}
+
+	if exclude != "" {
+		for _, e := range strings.Split(exclude, ",") {
+			r := strings.ReplaceAll(e, "*", ".*")
+			ec = append(ec, regexp.MustCompile("^"+r+"$"))
+		}
+	}
+
+	return ic, ec
+}
+
+func checkIncludeOrExcludeFile(fileName string, include, exclude []*regexp.Regexp) bool {
+	// if not include all
+	if include != nil {
+		fi := false
+		for _, i := range include {
+			if i.MatchString(fileName) {
+				fi = true
+
+				break
+			}
+		}
+
+		if !fi {
+			return false
+		}
+	}
+
+	fe := false
+	for _, e := range exclude {
+		if e.MatchString(fileName) {
+			fe = true
+
+			break
+		}
+	}
+
+	return !fe
 }
