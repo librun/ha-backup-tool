@@ -78,6 +78,11 @@ Extract only media archive:
 ha-backup-tool extract -e dir/emergency_file.txt -ic media.tar.gz dir1/backup1.tar
 ```
 
+Extract media and share archive:
+```bash
+ha-backup-tool extract -e dir/emergency_file.txt -ic media*,share* dir1/backup1.tar
+```
+
 extract archive whose file name starts with core:
 ```bash
 ha-backup-tool extract -e dir/emergency_file.txt -ic core* dir1/backup1.tar
