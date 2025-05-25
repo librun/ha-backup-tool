@@ -11,9 +11,9 @@ import (
 	"github.com/librun/ha-backup-tool/internal/commands"
 )
 
-const (
-	AppVersion = "1.2.0"
-)
+// AppVersion displays service version in semantic versioning (http://semver.org/).
+// Can be replaced while compiling with flag "-ldflags "-X main.AppVersion=${VERSION}"".
+var AppVersion = "develop" //nolint:gochecknoglobals // Use for replace outside
 
 func main() {
 	app := &cli.Command{
