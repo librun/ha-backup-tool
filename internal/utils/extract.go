@@ -3,6 +3,7 @@ package utils
 import (
 	"archive/tar"
 	"compress/gzip"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -16,21 +17,36 @@ import (
 )
 
 const (
+	UnpackDirMod = 0755
 	extTar       = ".tar"
 	extTarGz     = ".tar.gz"
-	UnpackDirMod = 0755
+	backupJSON   = "backup.json"
 
 	maxDecompressionSize int64 = 2 * 1025 * 1024 * 1024
+)
+
+type tarGzReader struct {
+	io.Reader
+	file *os.File
+}
+
+//nolint:gochecknoglobals // This is const varible
+var (
+	backupJSONCryptSupport   = []string{"aes128"}
+	backupJSONVersionSupport = []int{2}
 )
 
 var (
 	ErrMaxDecompressionSize = fmt.Errorf("size of decoded data exceeds allowed size %d", maxDecompressionSize)
 	ErrFileNotValid         = errors.New("file not valid")
 	ErrNotFullUnpack        = errors.New("one or more files not success unpack")
+	ErrBackupJSONNotHave    = fmt.Errorf("file %s not have", backupJSON)
+	ErrBackupJSONUnmarshal  = fmt.Errorf("error unmarshal %s file", backupJSON)
+	ErrBackupJSONValidate   = fmt.Errorf("error validate %s file", backupJSON)
 )
 
 // Extract - start unpack archive.
-func Extract(file, key, outputDir, include, exclude string, includeBackupName bool) error {
+func Extract(file, outputDir, include, exclude string, key *KeyStorage, includeBackupName bool) error {
 	var successCount int
 
 	fmt.Printf("📦 Extracting %s...\n", file)
@@ -39,8 +55,17 @@ func Extract(file, key, outputDir, include, exclude string, includeBackupName bo
 		return err
 	}
 
+	e, err := getBackupJSON(file, key, d)
+	if err != nil {
+		return err
+	}
+
+	if !e.Compressed {
+		return nil
+	}
+
 	// Look for tar.gz files in the extracted directory
-	sts := filterTarGz(d)
+	sts := filterFilesBySuffix(d, extTarGz)
 	if len(sts) == 0 {
 		return nil
 	}
@@ -54,7 +79,7 @@ func Extract(file, key, outputDir, include, exclude string, includeBackupName bo
 		go func() {
 			defer wg.Done()
 
-			if errD := decryptArchive(file, st, key); errD != nil {
+			if errD := ExtractBackupItem(file, st, key, e.Protected); errD != nil {
 				lastErr = errD
 
 				return
@@ -89,11 +114,7 @@ func ExtractBackup(file, outputDir, include, exclude string, includeBackupName b
 		dir = filepath.Join(filepath.Dir(file), getBaseNameArchive(file))
 	}
 
-	if _, errS := os.Stat(dir); os.IsNotExist(errS) {
-		if err = os.Mkdir(dir, UnpackDirMod); err != nil {
-			return nil, err
-		}
-	} else {
+	if _, errS := os.Stat(dir); errS == nil {
 		return nil, fmt.Errorf("dir %s is exists", dir) //nolint:err113 // Dynamic error
 	}
 
@@ -121,10 +142,57 @@ func ValidateTarFile(p string) error {
 	return nil
 }
 
+// ExtractBackupItem - function for extract backup sub archive.
+func ExtractBackupItem(archName, fpath string, key *KeyStorage, protected bool) error {
+	fn := filepath.Base(fpath)
+
+	var k string
+	if protected {
+		var err error
+		k, err = key.GetKey()
+		if err != nil {
+			return err
+		}
+	}
+
+	r, err := newTarGzReader(fpath, k, protected)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if r.file != nil {
+			if err = r.file.Close(); err != nil {
+				panic(err)
+			}
+		}
+	}()
+
+	if err = extractTarGz(r, fpath, ""); err != nil {
+		fmt.Printf("❌ Error: Unable to extract %s/%s - possible wrong password or broken file\n", archName, fn)
+
+		return err
+	}
+
+	fmt.Printf("🔓 Extract success %s/%s... \n", archName, fn)
+
+	// Remove the file after successful extraction
+	if err = os.Remove(fpath); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func extractTar(r io.Reader, outputDir string, include, exclude []*regexp.Regexp) ([]string, error) {
 	tarReader := tar.NewReader(r)
 
 	var fl []string
+
+	if _, errS := os.Stat(outputDir); os.IsNotExist(errS) {
+		if err := os.Mkdir(outputDir, UnpackDirMod); err != nil {
+			return nil, err
+		}
+	}
 
 	for {
 		header, err := tarReader.Next()
@@ -137,28 +205,27 @@ func extractTar(r io.Reader, outputDir string, include, exclude []*regexp.Regexp
 			return nil, err
 		}
 
-		if !checkIncludeOrExcludeFile(header.Name, include, exclude) {
-			continue
-		}
-
 		p, errS := sanitizeArchivePath(outputDir, header.Name)
 		if errS != nil {
 			return nil, errS
 		}
 
+		if p == outputDir || !checkIncludeOrExcludeFile(header.Name, include, exclude) {
+			continue
+		}
+
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err = os.Mkdir(p, UnpackDirMod); err != nil {
-				return nil, err
-			}
+			err = os.Mkdir(p, UnpackDirMod)
 		case tar.TypeReg:
-			if err = copyFile(p, tarReader); err != nil {
-				return nil, err
-			}
-
+			err = copyFile(p, tarReader)
 		default:
 			//nolint:err113 // Dynamic error
-			return nil, fmt.Errorf("ExtractTarGz: uknown type: %b in %s", header.Typeflag, header.Name)
+			err = fmt.Errorf("ExtractTarGz: uknown type: %b in %s", header.Typeflag, header.Name)
+		}
+
+		if err != nil {
+			return nil, err
 		}
 
 		fl = append(fl, p)
@@ -167,13 +234,15 @@ func extractTar(r io.Reader, outputDir string, include, exclude []*regexp.Regexp
 	return fl, nil
 }
 
-func filterTarGz(fl []string) []string {
+func filterFilesBySuffix(fl []string, suffix string) []string {
 	var fltg []string
+
+	suffix = strings.ToLower(suffix)
 
 	for _, f := range fl {
 		bn := filepath.Base(f)
 
-		if strings.HasSuffix(strings.ToLower(bn), extTarGz) {
+		if strings.HasSuffix(strings.ToLower(bn), suffix) {
 			fltg = append(fltg, f)
 		}
 	}
@@ -181,46 +250,124 @@ func filterTarGz(fl []string) []string {
 	return fltg
 }
 
-func decryptArchive(archName, fpath, key string) error {
-	if err := extractSecureTar(archName, fpath, key); err != nil {
+func getBackupJSON(file string, key *KeyStorage, fl []string) (*HomeAssistantBackup, error) {
+	var e *HomeAssistantBackup
+	var h bool
+	var hgz bool
+
+	for _, f := range fl {
+		bn := filepath.Base(f)
+		bn = strings.ToLower(bn)
+
+		if strings.HasSuffix(bn, extTarGz) {
+			hgz = true
+
+			continue
+		}
+
+		if bn == backupJSON {
+			h = true
+			if err := openAndUnmarshalJSON(f, &e); err != nil {
+				fmt.Printf("❌ Backup %s error unmarshal %s: %s\n", file, backupJSON, err)
+
+				return nil, ErrBackupJSONUnmarshal
+			}
+		}
+	}
+
+	if !h {
+		fmt.Printf("⚠️  Backup %s not have %s\n", file, backupJSON)
+
+		e = &HomeAssistantBackup{Compressed: hgz}
+
+		if key.IsEmKitPathSet() || key.IsPasswordSet() {
+			e.Protected = true
+		}
+
+		return e, nil
+	}
+
+	if err := validateBackupJSON(e); err != nil {
+		fmt.Printf("❌ Backup %s error validate %s: %s\n", file, backupJSON, err)
+
+		return nil, ErrBackupJSONValidate
+	}
+
+	return e, nil
+}
+
+func openAndUnmarshalJSON(fpath string, v any) error {
+	fo, err := os.Open(fpath)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err = fo.Close(); err != nil {
+			panic(err)
+		}
+	}()
+
+	b, err := io.ReadAll(fo)
+	if err != nil {
 		return err
 	}
 
-	// Remove the encrypted file after successful extraction
-	if err := os.Remove(fpath); err != nil {
+	if err = json.Unmarshal(b, v); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func extractSecureTar(archName, filename, passwd string) error {
-	fn := filepath.Base(filename)
+func validateBackupJSON(e *HomeAssistantBackup) error {
+	var c = strings.ToLower(e.Crypto)
+	var cs bool
+	var vs bool
+
+	for _, s := range backupJSONCryptSupport {
+		if s == c {
+			cs = true
+		}
+	}
+
+	if !cs {
+		return fmt.Errorf("crypto type %s not support", e.Crypto) //nolint:err113 // Dynamic error
+	}
+
+	for _, s := range backupJSONVersionSupport {
+		if s == e.Version {
+			vs = true
+		}
+	}
+
+	if !vs {
+		return fmt.Errorf("version backup %d not support", e.Version) //nolint:err113 // Dynamic error
+	}
+
+	return nil
+}
+
+func newTarGzReader(filename, passwd string, protected bool) (*tarGzReader, error) {
+	var re tarGzReader
 
 	f, err := os.Open(filename)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	defer func() {
-		if err = f.Close(); err != nil {
-			panic(err)
-		}
-	}()
 
-	r, err := decryptor.NewReader(f, passwd)
+	if !protected {
+		re.file = f
+		re.Reader = f
+
+		return &re, nil
+	}
+
+	re.Reader, err = decryptor.NewReader(f, passwd)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if err = extractTarGz(r, filename, ""); err != nil {
-		fmt.Printf("❌ Error: Unable to extract %s/%s - possible wrong password or broken file\n", archName, fn)
-
-		return err
-	}
-
-	fmt.Printf("🔓 Decrypt success %s/%s... \n", archName, fn)
-
-	return nil
+	return &re, nil
 }
 
 // extractTarGz - unpack tar.gz files after encrypt
@@ -283,14 +430,15 @@ func parseIncudeExclude(include, exclude string) ([]*regexp.Regexp, []*regexp.Re
 	var ec []*regexp.Regexp
 
 	if include != "" {
-		for _, i := range strings.Split(include, ",") {
+		for i := range strings.SplitSeq(include, ",") {
 			r := strings.ReplaceAll(i, "*", ".*")
 			ic = append(ic, regexp.MustCompile("^"+r+"$"))
 		}
+		ic = append(ic, regexp.MustCompile("^.*"+backupJSON+"$"))
 	}
 
 	if exclude != "" {
-		for _, e := range strings.Split(exclude, ",") {
+		for e := range strings.SplitSeq(exclude, ",") {
 			r := strings.ReplaceAll(e, "*", ".*")
 			ec = append(ec, regexp.MustCompile("^"+r+"$"))
 		}

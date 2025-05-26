@@ -55,10 +55,7 @@ func extractAction(_ context.Context, c *cli.Command) error {
 	var ic = c.String("include")
 	var ec = c.String("exclude")
 
-	key, err := utils.GetKey(e, p)
-	if err != nil {
-		return err
-	}
+	key := utils.NewKeyStorage(e, p)
 
 	if len(fs) == 0 {
 		fmt.Println("\n⚠️  No files for extract.")
@@ -74,7 +71,7 @@ func extractAction(_ context.Context, c *cli.Command) error {
 
 	if m && o != "" {
 		if _, errS := os.Stat(o); os.IsNotExist(errS) {
-			if err = os.Mkdir(o, utils.UnpackDirMod); err != nil {
+			if err := os.Mkdir(o, utils.UnpackDirMod); err != nil {
 				return err
 			}
 		}
@@ -86,13 +83,13 @@ func extractAction(_ context.Context, c *cli.Command) error {
 		go func() {
 			defer wg.Done()
 
-			if er := utils.ValidateTarFile(f); er != nil {
-				fmt.Printf("\n❌ Error: %s. File .tar not valid!\n", er)
+			if err := utils.ValidateTarFile(f); err != nil {
+				fmt.Printf("\n❌ Error: %s. File .tar not valid!\n", err)
 
 				return
 			}
 
-			if er := utils.Extract(f, key, o, ic, ec, m); er != nil {
+			if er := utils.Extract(f, o, ic, ec, key, m); er != nil {
 				fmt.Printf("\n❌ Error processing %s: %s\n", f, er)
 
 				return

@@ -7,6 +7,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 )
 
 const (
@@ -21,7 +22,47 @@ var (
 	ErrPasswordNotValid        = errors.New("password not valid format")
 )
 
+type KeyStorage struct {
+	mu     sync.Mutex
+	emKit  string
+	passwd string
+	key    string
+	inited bool
+}
+
 // GetKey - get password key for decrypt archive.
+func NewKeyStorage(e, p string) *KeyStorage {
+	return &KeyStorage{
+		mu:     sync.Mutex{},
+		emKit:  e,
+		passwd: p,
+	}
+}
+
+func (k *KeyStorage) IsPasswordSet() bool {
+	return k.passwd != ""
+}
+func (k *KeyStorage) IsEmKitPathSet() bool {
+	return k.emKit != ""
+}
+
+func (k *KeyStorage) GetKey() (string, error) {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+
+	if !k.inited {
+		key, err := GetKey(k.emKit, k.passwd)
+		if err != nil {
+			return "", err
+		}
+
+		k.key = key
+		k.inited = true
+	}
+
+	return k.key, nil
+}
+
 func GetKey(e, p string) (string, error) {
 	var key string
 
