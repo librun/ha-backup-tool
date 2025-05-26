@@ -1,4 +1,4 @@
-package utils
+package key
 
 import (
 	"bufio"
@@ -20,9 +20,10 @@ var (
 
 	ErrEmergencyFileNotHaveKey = errors.New("emergency file not have key")
 	ErrPasswordNotValid        = errors.New("password not valid format")
+	ErrFileNotValid            = errors.New("file not valid")
 )
 
-type KeyStorage struct {
+type Storage struct {
 	mu     sync.Mutex
 	emKit  string
 	passwd string
@@ -31,22 +32,22 @@ type KeyStorage struct {
 }
 
 // GetKey - get password key for decrypt archive.
-func NewKeyStorage(e, p string) *KeyStorage {
-	return &KeyStorage{
+func NewStorage(e, p string) *Storage {
+	return &Storage{
 		mu:     sync.Mutex{},
 		emKit:  e,
 		passwd: p,
 	}
 }
 
-func (k *KeyStorage) IsPasswordSet() bool {
+func (k *Storage) IsPasswordSet() bool {
 	return k.passwd != ""
 }
-func (k *KeyStorage) IsEmKitPathSet() bool {
+func (k *Storage) IsEmKitPathSet() bool {
 	return k.emKit != ""
 }
 
-func (k *KeyStorage) GetKey() (string, error) {
+func (k *Storage) GetKey() (string, error) {
 	k.mu.Lock()
 	defer k.mu.Unlock()
 

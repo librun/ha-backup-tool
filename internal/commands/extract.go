@@ -9,7 +9,12 @@ import (
 
 	"github.com/urfave/cli/v3"
 
+	"github.com/librun/ha-backup-tool/internal/options"
 	"github.com/librun/ha-backup-tool/internal/utils"
+)
+
+var (
+	ErrNotFullExtract = errors.New("please check that your backup files and emergency kit are correct")
 )
 
 // Extract - command for extract archive.
@@ -49,14 +54,12 @@ func Extract() *cli.Command {
 
 // extractAction - command for extract backups.
 func extractAction(_ context.Context, c *cli.Command) error {
-	var o = c.String("output")
-	var e = c.String("emergency")
-	var p = c.String("password")
 	var fs = c.StringArgs("backups")
-	var ic = c.String("include")
-	var ec = c.String("exclude")
 
-	key := utils.NewKeyStorage(e, p)
+	ops, err := options.NewCmdExtractOptions(c)
+	if err != nil {
+		return err
+	}
 
 	if len(fs) == 0 {
 		fmt.Println("\n⚠️  No files for extract.")
@@ -64,39 +67,27 @@ func extractAction(_ context.Context, c *cli.Command) error {
 		return nil
 	}
 
-	fmt.Printf("📁 Found %s backup file(s) to process\n", fs)
-
-	var s int
-	var m = len(fs) > 1
-	var wg = sync.WaitGroup{}
-
-	if m && o != "" {
-		if _, errS := os.Stat(o); os.IsNotExist(errS) {
-			if err := os.Mkdir(o, utils.UnpackDirMod); err != nil {
+	ops.ExtractToSubDir = len(fs) > 1
+	if ops.ExtractToSubDir && ops.OutputDir != "" {
+		if _, errS := os.Stat(ops.OutputDir); os.IsNotExist(errS) {
+			if err = os.Mkdir(ops.OutputDir, utils.UnpackDirMod); err != nil {
 				return err
 			}
 		}
 	}
 
+	fmt.Printf("📁 Found %s backup file(s) to process\n", fs)
+
+	var s int
+	var wg = sync.WaitGroup{}
+
 	for _, f := range fs {
 		wg.Add(1)
 
 		go func() {
-			defer wg.Done()
-
-			if err := utils.ValidateTarFile(f); err != nil {
-				fmt.Printf("\n❌ Error: %s. File .tar not valid!\n", err)
-
-				return
+			if errF := extractActionFile(f, ops, &wg); errF == nil {
+				s++
 			}
-
-			if er := utils.Extract(f, o, ic, ec, key, m); er != nil {
-				fmt.Printf("\n❌ Error processing %s: %s\n", f, er)
-
-				return
-			}
-
-			s++
 		}()
 	}
 
@@ -110,7 +101,31 @@ func extractAction(_ context.Context, c *cli.Command) error {
 	}
 
 	if s == 0 || s != len(fs) {
-		return errors.New("Please check that your backup files and emergency kit are correct.")
+		return ErrNotFullExtract
+	}
+
+	return nil
+}
+
+func extractActionFile(f string, ops *options.CmdExtractOptions, wg *sync.WaitGroup) error {
+	defer wg.Done()
+
+	if err := utils.ValidateTarFile(f); err != nil {
+		if !ops.Verbose {
+			fmt.Printf("\n❌ File %s .tar not valid!\n", f)
+		} else {
+			fmt.Printf("\n❌ File %s .tar not valid! Error: %s\n", f, err)
+		}
+
+		return err
+	}
+
+	if err := utils.Extract(f, ops); err != nil {
+		if ops.Verbose {
+			fmt.Printf("\nℹ️ Last error processing %s: %s\n", f, err)
+		}
+
+		return err
 	}
 
 	return nil
