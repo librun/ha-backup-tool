@@ -3,11 +3,17 @@ Tool for work with Home Assistant Backup
 
 # Install
 
-## Way 1 - Download binary
+## Way 1 - Download by bash (for Linux and MacOS)
+
+```bash
+wget -qO- https://github.com/librun/ha-backup-tool/releases/latest/download/ha-backup-tool-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m).tar.gz | tar -xz
+```
+
+## Way 2 - Download binary (for Linux, MacOS, Windows)
 Open [link](https://github.com/librun/ha-backup-tool/releases) choose you OS & platrom and download file
 Unpack file and use
 
-## Way 2 - Build yourself
+## Way 3 - Build yourself (for All)
 
 run comand:
 ```bash
