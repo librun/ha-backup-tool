@@ -32,6 +32,15 @@ func main() {
 				Aliases: []string{"p"},
 				Usage:   "Password for decrypt backup",
 			},
+			&cli.StringFlag{
+				Name:  "max-archive-size",
+				Usage: "Max size for extract archive",
+			},
+			&cli.BoolFlag{
+				Name:    "verbose",
+				Aliases: []string{"v"},
+				Usage:   "Verbose mode for output more information",
+			},
 		},
 		Commands: []*cli.Command{
 			commands.Extract(),
