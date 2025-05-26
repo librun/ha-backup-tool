@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -109,7 +110,7 @@ func extractAction(_ context.Context, c *cli.Command) error {
 	}
 
 	if s == 0 || s != len(fs) {
-		fmt.Println("Please check that your backup files and emergency kit are correct.")
+		return errors.New("Please check that your backup files and emergency kit are correct.")
 	}
 
 	return nil
