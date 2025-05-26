@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import hashlib
 import re
 import sys
@@ -30,10 +32,14 @@ def create_slug(name: str, date_str: str) -> str:
     return hashlib.sha1(key).hexdigest()[:8]
 
 
+def file_filter(_: PurePath) -> bool:
+    return True
+
+
 def main():
     compressed = True
     key = password_to_key("XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX")
-    dir_for_encrypt = "./data/test_unencrypt"
+    dir_for_encrypt = "./test_data/test_unencrypt"
     tmp_name = "./data"
     tar_name = f"test.tar{'.gz' if compressed else ''}"
 
@@ -53,7 +59,7 @@ def main():
         atomic_contents_add(
             tar_file,
             path_to_add,
-            excludes=[],
+            file_filter,
             arcname=".",
         )
 
