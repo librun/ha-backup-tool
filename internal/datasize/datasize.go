@@ -103,13 +103,17 @@ func ParseDataSize(v string) (int64, error) {
 	case 0:
 		t = pBit
 	case 1:
-		t = d[1]
+		t = d[2]
 	default:
 		t = strings.ToUpper(d[2][0:1]) + d[2][1:]
 	}
 
 	m, ok := mappingDataSize[t]
 	if !ok {
+		return 0, ErrDatasizeNotValid
+	}
+
+	if i > 1048575 && m > dGibibyte {
 		return 0, ErrDatasizeNotValid
 	}
 
