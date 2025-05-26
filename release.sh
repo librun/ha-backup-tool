@@ -54,13 +54,13 @@ cleanup
 
 touch ${BUILD_DIR}/checksum.txt
 
-make_release 386 linux "${NAME}-v${VERSION}-linux-i386"
-make_release amd64 linux "${NAME}-v${VERSION}-linux-amd64"
-make_release arm64 linux "${NAME}-v${VERSION}-linux-arm64"
+make_release 386 linux "${NAME}-linux-i386"
+make_release amd64 linux "${NAME}-linux-amd64"
+make_release arm64 linux "${NAME}-linux-arm64"
 
-make_release 386 windows "${NAME}-v${VERSION}-win32" .exe
-make_release amd64 windows "${NAME}-v${VERSION}-win64" .exe
-make_release arm64 windows "${NAME}-v${VERSION}-win-arm64" .exe
+make_release 386 windows "${NAME}-win32" .exe
+make_release amd64 windows "${NAME}-win64" .exe
+make_release arm64 windows "${NAME}-win-arm64" .exe
 
-make_release amd64 darwin "${NAME}-v${VERSION}-darwin-amd64"
-make_release arm64 darwin "${NAME}-v${VERSION}-darwin-arm64"
+make_release amd64 darwin "${NAME}-darwin-amd64"
+make_release arm64 darwin "${NAME}-darwin-arm64"
