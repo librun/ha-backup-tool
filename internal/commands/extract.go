@@ -22,7 +22,7 @@ var (
 func Extract() *cli.Command {
 	return &cli.Command{
 		Name:    "extract",
-		Aliases: []string{"unpack"},
+		Aliases: []string{"unpack", "e", "u"},
 		Usage:   "command for decrypt and extract one or more backups",
 		Arguments: []cli.Argument{
 			&cli.StringArgs{
