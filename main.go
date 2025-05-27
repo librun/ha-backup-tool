@@ -12,8 +12,9 @@ import (
 )
 
 // AppVersion displays service version in semantic versioning (http://semver.org/).
-// Can be replaced while compiling with flag "-ldflags "-X main.AppVersion=${VERSION}"".
-var AppVersion = "develop" //nolint:gochecknoglobals // Use for replace outside
+const (
+	AppVersion = "1.4.1"
+)
 
 func main() {
 	app := &cli.Command{
@@ -37,9 +38,8 @@ func main() {
 				Usage: "Max size for extract archive",
 			},
 			&cli.BoolFlag{
-				Name:    "verbose",
-				Aliases: []string{"v"},
-				Usage:   "Verbose mode for output more information",
+				Name:  "verbose",
+				Usage: "Verbose mode for output more information",
 			},
 		},
 		Commands: []*cli.Command{

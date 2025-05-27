@@ -1,8 +1,6 @@
-build/
-
-/data/
 /source_script/
 /build/
 /cli-docs.md
+/test_data/local
 
 .DS_Store

@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	maxDecompressionSize int64 = 2 * 1024 * 1024 * 1024 // 2Gb
+	maxDecompressionSize int64 = 500 * int64(datasize.GigabyteSize) // 500GB
 	BackupJSON                 = "backup.json"
 )
 

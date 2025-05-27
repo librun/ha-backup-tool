@@ -34,7 +34,7 @@ ha-backup-tool
 [--emergency|-e]=[value]
 [--max-archive-size]=[value]
 [--password|-p]=[value]
-[--verbose|-v]
+[--verbose]
 ```
 
 **Usage**:
@@ -47,16 +47,16 @@ ha-backup-tool [GLOBAL OPTIONS] [command [COMMAND OPTIONS]] [ARGUMENTS...]
 
 **--emergency, -e**="": Filepath for emergency text file
 
-**--max-archive-size**="": Max size for extract archive
+**--max-archive-size**="": Max size for extract archive (default size 500GB)
 
 **--password, -p**="": Password for decrypt backup
 
-**--verbose, -v**: Verbose mode for output more information
+**--verbose**: Verbose mode for output more information
 
 
 ## COMMANDS
 
-### extract, unpack
+### extract, unpack, e, u
 
 command for decrypt and extract one or more backups
 

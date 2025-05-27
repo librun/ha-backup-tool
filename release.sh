@@ -3,7 +3,7 @@
 CURRENT_DIR=$(dirname "$(realpath $0)")
 BUILD_DIR="${CURRENT_DIR}/build"
 NAME="ha-backup-tool"
-VERSION=${1}
+VERSION=$(cat ./main.go | grep -i -E "AppVersion\s+=" | cut -d'=' -f2 | tr -d '"' | tr -d '[:space:]')
 
 echo "Application version ${VERSION}"
 
@@ -24,7 +24,7 @@ function make_release() {
     local dir="${BUILD_DIR}/${release_name}"
 
     mkdir -p "${dir}"
-    env GOARCH="${arch}" GOOS="${os}" CGO_ENABLED=0 go build -ldflags "-s -w -X main.AppVersion=${VERSION}" -o "${dir}/${NAME}${ext}"
+    env GOARCH="${arch}" GOOS="${os}" CGO_ENABLED=0 go build -o "${dir}/${NAME}${ext}"
 
     cp LICENSE "${dir}"
     cp README.md "${dir}"
@@ -44,11 +44,6 @@ function make_release() {
     rm -r "${release_name}"
     cd ../
 }
-
-if [ -z "${VERSION}" ]; then
-    echo "VERSION is not set. Use ./release.sh 0.0.0" >&2
-    exit 1
-fi
 
 cleanup
 

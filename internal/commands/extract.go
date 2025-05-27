@@ -10,6 +10,7 @@ import (
 	"github.com/urfave/cli/v3"
 
 	"github.com/librun/ha-backup-tool/internal/options"
+	"github.com/librun/ha-backup-tool/internal/tarextractor"
 	"github.com/librun/ha-backup-tool/internal/utils"
 )
 
@@ -21,7 +22,7 @@ var (
 func Extract() *cli.Command {
 	return &cli.Command{
 		Name:    "extract",
-		Aliases: []string{"unpack"},
+		Aliases: []string{"unpack", "e", "u"},
 		Usage:   "command for decrypt and extract one or more backups",
 		Arguments: []cli.Argument{
 			&cli.StringArgs{
@@ -70,7 +71,7 @@ func extractAction(_ context.Context, c *cli.Command) error {
 	ops.ExtractToSubDir = len(fs) > 1
 	if ops.ExtractToSubDir && ops.OutputDir != "" {
 		if _, errS := os.Stat(ops.OutputDir); os.IsNotExist(errS) {
-			if err = os.Mkdir(ops.OutputDir, utils.UnpackDirMod); err != nil {
+			if err = os.Mkdir(ops.OutputDir, tarextractor.UnpackDirMod); err != nil {
 				return err
 			}
 		}
