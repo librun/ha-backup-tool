@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"archive/tar"
 	"compress/gzip"
 	"encoding/json"
 	"errors"
@@ -14,12 +13,7 @@ import (
 
 	"github.com/librun/ha-backup-tool/internal/decryptor"
 	"github.com/librun/ha-backup-tool/internal/options"
-)
-
-const (
-	UnpackDirMod = 0755
-	extTar       = ".tar"
-	extTarGz     = ".tar.gz"
+	"github.com/librun/ha-backup-tool/internal/tarextractor"
 )
 
 type tarGzReader struct {
@@ -61,7 +55,7 @@ func Extract(file string, ops *options.CmdExtractOptions) error {
 	}
 
 	// Look for tar.gz files in the extracted directory
-	sts := filterFilesBySuffix(d, extTarGz)
+	sts := filterFilesBySuffix(d, tarextractor.ExtTarGz)
 	if len(sts) == 0 {
 		return nil
 	}
@@ -110,16 +104,17 @@ func ExtractBackup(file string, ops *options.CmdExtractOptions) ([]string, error
 	dir := ops.OutputDir
 
 	if ops.ExtractToSubDir && dir != "" {
-		dir = filepath.Join(dir, getBaseNameArchive(file))
+		dir = filepath.Join(dir, tarextractor.GetBaseNameArchive(file))
 	} else if dir == "" {
-		dir = filepath.Join(filepath.Dir(file), getBaseNameArchive(file))
+		dir = filepath.Join(filepath.Dir(file), tarextractor.GetBaseNameArchive(file))
 	}
 
 	if _, errS := os.Stat(dir); errS == nil {
 		return nil, fmt.Errorf("dir %s is exists", dir) //nolint:err113 // Dynamic error
 	}
 
-	fl, fs, errE := extractTar(r, dir, ops)
+	te := tarextractor.New(dir, ops)
+	fl, fs, errE := te.Run(r)
 	if len(fs) > 0 {
 		fmt.Printf("⚠️ In progress extract %s skipped %d file(s)\n", file, len(fs))
 	}
@@ -139,7 +134,7 @@ func ValidateTarFile(p string) error {
 	}
 
 	ext := filepath.Ext(s.Name())
-	if strings.ToLower(ext) != extTar {
+	if strings.ToLower(ext) != tarextractor.ExtTar {
 		return ErrFileNotValid
 	}
 
@@ -187,61 +182,6 @@ func ExtractBackupItem(archName, fpath string, protected bool, ops *options.CmdE
 	return nil
 }
 
-func extractTar(r io.Reader, outputDir string, ops *options.CmdExtractOptions) ([]string, []string, error) {
-	tarReader := tar.NewReader(r)
-
-	var fl []string
-	var fs []string
-
-	if _, errS := os.Stat(outputDir); os.IsNotExist(errS) {
-		if err := os.Mkdir(outputDir, UnpackDirMod); err != nil {
-			return nil, nil, err
-		}
-	}
-
-	for {
-		header, err := tarReader.Next()
-
-		if errors.Is(err, io.EOF) {
-			break
-		}
-
-		if err != nil {
-			return nil, nil, err
-		}
-
-		p, errS := sanitizeArchivePath(outputDir, header.Name)
-		if errS != nil {
-			return nil, nil, errS
-		}
-
-		if p == outputDir || !checkIncludeOrExcludeFile(header.Name, ops) {
-			continue
-		}
-
-		switch header.Typeflag {
-		case tar.TypeDir:
-			err = os.Mkdir(p, UnpackDirMod)
-		case tar.TypeReg:
-			err = copyFile(p, tarReader, ops)
-		default:
-			if ops.Verbose {
-				fmt.Printf("⚠️ ExtractTarGz: uknown type: %s in %s\n", string(header.Typeflag), header.Name)
-			}
-
-			fs = append(fs, p)
-		}
-
-		if err != nil {
-			return nil, nil, err
-		}
-
-		fl = append(fl, p)
-	}
-
-	return fl, fs, nil
-}
-
 func filterFilesBySuffix(fl []string, suffix string) []string {
 	var fltg []string
 
@@ -267,7 +207,7 @@ func getBackupJSON(file string, fl []string, ops *options.CmdExtractOptions) (*H
 		bn := filepath.Base(f)
 		bn = strings.ToLower(bn)
 
-		if strings.HasSuffix(bn, extTarGz) {
+		if strings.HasSuffix(bn, tarextractor.ExtTarGz) {
 			hgz = true
 
 			continue
@@ -389,81 +329,15 @@ func extractTarGz(r io.Reader, filename, outputDir string, ops *options.CmdExtra
 
 	dir := outputDir
 	if dir == "" {
-		dir = filepath.Join(filepath.Dir(filename), getBaseNameArchive(filename))
+		dir = filepath.Join(filepath.Dir(filename), tarextractor.GetBaseNameArchive(filename))
 	}
 
-	_, fs, errE := extractTar(rg, dir, ops)
+	te := tarextractor.New(dir, ops)
+	_, fs, errE := te.Run(rg)
 	if len(fs) > 0 {
 		bn := filepath.Base(filename)
 		fmt.Printf("⚠️ In progress extract %s skipped %d file(s)\n", bn, len(fs))
 	}
 
 	return errE
-}
-
-func copyFile(fpath string, r io.Reader, ops *options.CmdExtractOptions) error {
-	outFile, err := os.Create(fpath)
-	if err != nil {
-		return err
-	}
-
-	defer outFile.Close()
-
-	written, errW := io.CopyN(outFile, r, ops.MaxArchiveSize)
-	if errW != nil && !errors.Is(errW, io.EOF) {
-		return errW
-	} else if written == ops.MaxArchiveSize {
-		return fmt.Errorf("size of decoded data exceeds allowed size %d", ops.MaxArchiveSize) //nolint:err113 // Dynamic error
-	}
-
-	return nil
-}
-
-// sanitize archive file pathing from "G305: Zip Slip vulnerability"
-func sanitizeArchivePath(d, t string) (string, error) {
-	v := filepath.Join(d, t)
-	if strings.HasPrefix(v, filepath.Clean(d)) {
-		return v, nil
-	}
-
-	//nolint:err113 // Dynamic error
-	return "", fmt.Errorf("%s: %s", "content filepath is tainted", t)
-}
-
-// getBaseNameArchive - get base archive name without ext and location.
-func getBaseNameArchive(fpath string) string {
-	fn := filepath.Base(fpath)
-	fn, _ = strings.CutSuffix(fn, extTarGz)
-	fn, _ = strings.CutSuffix(fn, extTar)
-
-	return fn
-}
-
-func checkIncludeOrExcludeFile(fileName string, ops *options.CmdExtractOptions) bool {
-	// if not include all
-	if ops.Include != nil {
-		fi := false
-		for _, i := range ops.Include {
-			if i.MatchString(fileName) {
-				fi = true
-
-				break
-			}
-		}
-
-		if !fi {
-			return false
-		}
-	}
-
-	fe := false
-	for _, e := range ops.Exclude {
-		if e.MatchString(fileName) {
-			fe = true
-
-			break
-		}
-	}
-
-	return !fe
 }

@@ -37,8 +37,8 @@ func main() {
 				Usage: "Max size for extract archive",
 			},
 			&cli.BoolFlag{
-				Name:    "verbose",
-				Usage:   "Verbose mode for output more information",
+				Name:  "verbose",
+				Usage: "Verbose mode for output more information",
 			},
 		},
 		Commands: []*cli.Command{
