@@ -38,7 +38,6 @@ func main() {
 			},
 			&cli.BoolFlag{
 				Name:    "verbose",
-				Aliases: []string{"v"},
 				Usage:   "Verbose mode for output more information",
 			},
 		},
