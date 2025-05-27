@@ -73,7 +73,7 @@ func (e *Extractor) Run(r io.Reader) ([]string, []string, error) {
 	}
 
 	// create hard link after all extract
-	if err := e.createHardLinks(e.hl); err != nil {
+	if err := e.createHardLinks(); err != nil {
 		return nil, nil, err
 	}
 
@@ -106,17 +106,15 @@ func (e *Extractor) extractTarItem(header *tar.Header, fp string) error {
 	return nil
 }
 
-func (e *Extractor) createHardLinks(hl map[string]string) error {
-	var hl2 = map[string]string{}
-
-	for n, o := range hl {
+func (e *Extractor) createHardLinks() error {
+	for n, o := range e.hl {
 		p, err := SanitizeArchivePath(e.o, o)
 		if err != nil {
 			return err
 		}
 
 		if _, err = os.Stat(p); os.IsNotExist(err) {
-			hl2[n] = p
+			e.fs = append(e.fs, n)
 
 			continue
 		}
@@ -125,12 +123,6 @@ func (e *Extractor) createHardLinks(hl map[string]string) error {
 			return err
 		}
 	}
-
-	// if len(hl2) > 0 && len(hl2) < len(hl) {
-	// 	return e.createHardLinks(hl2)
-	// }
-
-	// fs = append(fs, ns...)
 
 	return nil
 }
