@@ -119,7 +119,12 @@ func ExtractBackup(file string, ops *options.CmdExtractOptions) ([]string, error
 		return nil, fmt.Errorf("dir %s is exists", dir) //nolint:err113 // Dynamic error
 	}
 
-	return extractTar(r, dir, ops)
+	fl, fs, errE := extractTar(r, dir, ops)
+	if len(fs) > 0 {
+		fmt.Printf("⚠️ In progress extract %s skipped %d file(s)\n", file, len(fs))
+	}
+
+	return fl, errE
 }
 
 // ValidateTarFile - validate tar file is exist and other.
@@ -182,14 +187,15 @@ func ExtractBackupItem(archName, fpath string, protected bool, ops *options.CmdE
 	return nil
 }
 
-func extractTar(r io.Reader, outputDir string, ops *options.CmdExtractOptions) ([]string, error) {
+func extractTar(r io.Reader, outputDir string, ops *options.CmdExtractOptions) ([]string, []string, error) {
 	tarReader := tar.NewReader(r)
 
 	var fl []string
+	var fs []string
 
 	if _, errS := os.Stat(outputDir); os.IsNotExist(errS) {
 		if err := os.Mkdir(outputDir, UnpackDirMod); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
@@ -201,12 +207,12 @@ func extractTar(r io.Reader, outputDir string, ops *options.CmdExtractOptions) (
 		}
 
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		p, errS := sanitizeArchivePath(outputDir, header.Name)
 		if errS != nil {
-			return nil, errS
+			return nil, nil, errS
 		}
 
 		if p == outputDir || !checkIncludeOrExcludeFile(header.Name, ops) {
@@ -219,18 +225,21 @@ func extractTar(r io.Reader, outputDir string, ops *options.CmdExtractOptions) (
 		case tar.TypeReg:
 			err = copyFile(p, tarReader, ops)
 		default:
-			//nolint:err113 // Dynamic error
-			err = fmt.Errorf("ExtractTarGz: uknown type: %b in %s", header.Typeflag, header.Name)
+			if ops.Verbose {
+				fmt.Printf("⚠️ ExtractTarGz: uknown type: %s in %s\n", string(header.Typeflag), header.Name)
+			}
+
+			fs = append(fs, p)
 		}
 
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		fl = append(fl, p)
 	}
 
-	return fl, nil
+	return fl, fs, nil
 }
 
 func filterFilesBySuffix(fl []string, suffix string) []string {
@@ -275,7 +284,9 @@ func getBackupJSON(file string, fl []string, ops *options.CmdExtractOptions) (*H
 	}
 
 	if !h {
-		fmt.Printf("⚠️ Backup %s not have %s\n", file, options.BackupJSON)
+		if ops.Verbose {
+			fmt.Printf("⚠️ Backup %s not have %s\n", file, options.BackupJSON)
+		}
 
 		e = &HomeAssistantBackup{Compressed: hgz}
 
@@ -381,9 +392,13 @@ func extractTarGz(r io.Reader, filename, outputDir string, ops *options.CmdExtra
 		dir = filepath.Join(filepath.Dir(filename), getBaseNameArchive(filename))
 	}
 
-	_, err = extractTar(rg, dir, ops)
+	_, fs, errE := extractTar(rg, dir, ops)
+	if len(fs) > 0 {
+		bn := filepath.Base(filename)
+		fmt.Printf("⚠️ In progress extract %s skipped %d file(s)\n", bn, len(fs))
+	}
 
-	return err
+	return errE
 }
 
 func copyFile(fpath string, r io.Reader, ops *options.CmdExtractOptions) error {
