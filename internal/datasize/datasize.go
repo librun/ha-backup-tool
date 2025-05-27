@@ -7,54 +7,54 @@ import (
 	"strings"
 )
 
-type datasize int64
+type Datasize int64
 
 const (
 	// base 10 (SI prefixes)
-	dBit     datasize = 1e0
-	dKilobit          = dBit * 1e3
-	dMegabit          = dBit * 1e6
-	dGigabit          = dBit * 1e9
-	dTerabit          = dBit * 1e12
+	BitSize     Datasize = 1e0
+	KilobitSize          = BitSize * 1e3
+	MegabitSize          = BitSize * 1e6
+	GigabitSize          = BitSize * 1e9
+	TerabitSize          = BitSize * 1e12
 
-	dByte     = dBit * 8
-	dKilobyte = dByte * 1e3
-	dMegabyte = dByte * 1e6
-	dGigabyte = dByte * 1e9
-	dTerabyte = dByte * 1e12
+	ByteSize     = BitSize * 8
+	KilobyteSize = ByteSize * 1e3
+	MegabyteSize = ByteSize * 1e6
+	GigabyteSize = ByteSize * 1e9
+	TerabyteSize = ByteSize * 1e12
 
 	// base 2 (IEC prefixes)
-	dKibibit = dBit * 1024
-	dMebibit = dKibibit * 1024
-	dGibibit = dMebibit * 1024
-	dTebibit = dGibibit * 1024
+	KibibitSize = BitSize * 1024
+	MebibitSize = KibibitSize * 1024
+	GibibitSize = MebibitSize * 1024
+	TebibitSize = GibibitSize * 1024
 
-	dKibibyte = dByte * 1024
-	dMebibyte = dKibibyte * 1024
-	dGibibyte = dMebibyte * 1024
-	dTebibyte = dGibibyte * 1024
+	KibibyteSize = ByteSize * 1024
+	MebibyteSize = KibibyteSize * 1024
+	GibibyteSize = MebibyteSize * 1024
+	TebibyteSize = GibibyteSize * 1024
 
-	pBit     = "b"
-	pKilobit = "Kb"
-	pMegabit = "Mb"
-	pGigabit = "Gb"
-	pTerabit = "Tb"
+	BitLabel     = "b"
+	KilobitLabel = "Kb"
+	MegabitLabel = "Mb"
+	GigabitLabel = "Gb"
+	TerabitLabel = "Tb"
 
-	pByte     = "B"
-	pKilobyte = "KB"
-	pMegabyte = "MB"
-	pGigabyte = "GB"
-	pTerabyte = "TB"
+	ByteLabel     = "B"
+	KilobyteLabel = "KB"
+	MegabyteLabel = "MB"
+	GigabyteLabel = "GB"
+	TerabyteLabel = "TB"
 
-	pKibibit = "Kib"
-	pMebibit = "Mib"
-	pGibibit = "Gib"
-	pTebibit = "Tib"
+	KibibitLabel = "Kib"
+	MebibitLabel = "Mib"
+	GibibitLabel = "Gib"
+	TebibitLabel = "Tib"
 
-	pKibibyte = "KiB"
-	pMebibyte = "MiB"
-	pGibibyte = "GiB"
-	pTebibyte = "TiB"
+	KibibyteLabel = "KiB"
+	MebibyteLabel = "MiB"
+	GibibyteLabel = "GiB"
+	TebibyteLabel = "TiB"
 )
 
 const lenRegexpExtractDatasize = 3
@@ -66,25 +66,25 @@ var (
 )
 
 func ParseDataSize(v string) (int64, error) {
-	mappingDataSize := map[string]datasize{
-		pBit:      dBit,
-		pKilobit:  dKilobit,
-		pMegabit:  dMegabit,
-		pGigabit:  dGigabit,
-		pTerabit:  dTerabit,
-		pByte:     dByte,
-		pKilobyte: dKilobyte,
-		pMegabyte: dMegabyte,
-		pGigabyte: dGigabyte,
-		pTerabyte: dTerabyte,
-		pKibibit:  dKibibit,
-		pMebibit:  dMebibit,
-		pGibibit:  dGibibit,
-		pTebibit:  dTebibit,
-		pKibibyte: dKibibyte,
-		pMebibyte: dMebibyte,
-		pGibibyte: dGibibyte,
-		pTebibyte: dTebibyte,
+	mappingDataSize := map[string]Datasize{
+		BitLabel:      BitSize,
+		KilobitLabel:  KilobitSize,
+		MegabitLabel:  MegabitSize,
+		GigabitLabel:  GigabitSize,
+		TerabitLabel:  TerabitSize,
+		ByteLabel:     ByteSize,
+		KilobyteLabel: KilobyteSize,
+		MegabyteLabel: MegabyteSize,
+		GigabyteLabel: GigabyteSize,
+		TerabyteLabel: TerabyteSize,
+		KibibitLabel:  KibibitSize,
+		MebibitLabel:  MebibitSize,
+		GibibitLabel:  GibibitSize,
+		TebibitLabel:  TebibitSize,
+		KibibyteLabel: KibibyteSize,
+		MebibyteLabel: MebibyteSize,
+		GibibyteLabel: GibibyteSize,
+		TebibyteLabel: TebibyteSize,
 	}
 
 	d := regexpExtractDatasize.FindStringSubmatch(v)
@@ -101,7 +101,7 @@ func ParseDataSize(v string) (int64, error) {
 
 	switch len(d[2]) {
 	case 0:
-		t = pBit
+		t = BitLabel
 	case 1:
 		t = d[2]
 	default:
@@ -113,9 +113,14 @@ func ParseDataSize(v string) (int64, error) {
 		return 0, ErrDatasizeNotValid
 	}
 
-	if i > 1048575 && m > dGibibyte {
+	if i > 1048575 && m > GibibyteSize {
 		return 0, ErrDatasizeNotValid
 	}
 
-	return i * int64(m), nil
+	r := i * int64(m)
+	if r < 0 {
+		return 0, ErrDatasizeNotValid
+	}
+
+	return r, nil
 }
