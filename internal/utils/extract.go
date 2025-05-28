@@ -170,10 +170,8 @@ func ExtractBackupItem(archName, fpath string, protected bool, ops *options.CmdE
 		return err
 	}
 	defer func() {
-		if r.file != nil {
-			if err = r.file.Close(); err != nil {
-				panic(err)
-			}
+		if err = r.Close(); err != nil {
+			panic(err)
 		}
 	}()
 
@@ -306,24 +304,32 @@ func validateBackupJSON(e *HomeAssistantBackup) error {
 func newTarGzReader(filename, passwd string, protected bool) (*tarGzReader, error) {
 	var re tarGzReader
 
-	f, err := os.Open(filename)
+	var err error
+	re.file, err = os.Open(filename)
 	if err != nil {
 		return nil, err
 	}
 
 	if !protected {
-		re.file = f
-		re.Reader = f
+		re.Reader = re.file
 
 		return &re, nil
 	}
 
-	re.Reader, err = decryptor.NewReader(f, passwd)
+	re.Reader, err = decryptor.NewReader(re.file, passwd)
 	if err != nil {
 		return nil, err
 	}
 
 	return &re, nil
+}
+
+func (r *tarGzReader) Close() error {
+	if r.file != nil {
+		return r.file.Close()
+	}
+
+	return nil
 }
 
 // extractTarGz - unpack tar.gz files after encrypt
