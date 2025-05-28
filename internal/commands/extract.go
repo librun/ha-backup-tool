@@ -122,9 +122,7 @@ func extractActionFile(f string, ops *options.CmdExtractOptions, wg *sync.WaitGr
 	}
 
 	if err := utils.Extract(f, ops); err != nil {
-		if ops.Verbose {
-			fmt.Printf("\nℹ️ Last error processing %s: %s\n", f, err)
-		}
+		fmt.Printf("\nℹ️ Last error processing %s: %s\n", f, err)
 
 		return err
 	}

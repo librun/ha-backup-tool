@@ -69,13 +69,24 @@ func Extract(file string, ops *options.CmdExtractOptions) error {
 		go func() {
 			defer wg.Done()
 
-			if errD := ExtractBackupItem(file, st, e.Protected, ops); errD != nil {
+			if errE := ExtractBackupItem(file, st, e.Protected, ops); errE != nil {
 				if ops.Verbose {
 					fmt.Printf("❌ Failed extract from backup: %s/%s encrypted: %t Error: %s\n",
-						file, filepath.Base(st), e.Protected, errD)
+						file, filepath.Base(st), e.Protected, errE)
 				}
 
-				lastErr = errD
+				lastErr = errE
+
+				return
+			}
+
+			// Remove the file after successful extraction
+			if errR := os.Remove(st); errR != nil {
+				if ops.Verbose {
+					fmt.Printf("❌ Failed delete file: %s/%s Error: %s\n", file, filepath.Base(st), errR)
+				}
+
+				lastErr = errR
 
 				return
 			}
@@ -173,11 +184,6 @@ func ExtractBackupItem(archName, fpath string, protected bool, ops *options.CmdE
 	}
 
 	fmt.Printf("🔓 Extract success %s/%s... \n", archName, fn)
-
-	// Remove the file after successful extraction
-	if err = os.Remove(fpath); err != nil {
-		return err
-	}
 
 	return nil
 }
