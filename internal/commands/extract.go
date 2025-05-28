@@ -98,7 +98,7 @@ func extractAction(_ context.Context, c *cli.Command) error {
 		fmt.Printf("\n✅ Successfully decrypted %v of %v backup file(s)!\n", s, len(fs))
 		fmt.Println("You can find the decrypted files in the extracted directories.")
 	} else {
-		fmt.Println("\n‼️ No files were successfully decrypted.")
+		fmt.Println("\n⚠️ No files were successfully decrypted.")
 	}
 
 	if s == 0 || s != len(fs) {
