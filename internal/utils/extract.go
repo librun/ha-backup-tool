@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/librun/ha-backup-tool/internal/decryptor"
+	"github.com/librun/ha-backup-tool/internal/logger"
 	"github.com/librun/ha-backup-tool/internal/options"
 	"github.com/librun/ha-backup-tool/internal/tarextractor"
 )
@@ -108,7 +109,7 @@ func ExtractBackup(file string, ops *options.CmdExtractOptions) ([]string, error
 	}
 	defer func() {
 		if err = r.Close(); err != nil {
-			panic(err)
+			logger.Fatal("Backup: %s Error close file: %s", file, err)
 		}
 	}()
 
@@ -171,7 +172,7 @@ func ExtractBackupItem(archName, fpath string, protected bool, ops *options.CmdE
 	}
 	defer func() {
 		if err = r.Close(); err != nil {
-			panic(err)
+			logger.Fatal("File %s/%s Error close file: %s", archName, fn, err)
 		}
 	}()
 
@@ -257,7 +258,7 @@ func openAndUnmarshalJSON(fpath string, v any) error {
 	}
 	defer func() {
 		if err = fo.Close(); err != nil {
-			panic(err)
+			logger.Fatal("File: %s Error close file: %s", fpath, err)
 		}
 	}()
 

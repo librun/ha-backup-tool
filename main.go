@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"fmt"
 	"os"
 
 	"github.com/urfave/cli/v3"
@@ -50,7 +50,8 @@ func main() {
 	// generateDocs(app)
 
 	if err := app.Run(context.Background(), os.Args); err != nil {
-		log.Fatal(err)
+		fmt.Printf("\n🛑 Running command exited with error: %s\n", err)
+		os.Exit(1)
 	}
 }
 
