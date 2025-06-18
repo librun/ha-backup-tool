@@ -13,6 +13,8 @@ import (
 const (
 	maxDecompressionSize int64 = 500 * int64(datasize.GigabyteSize) // 500GB
 	BackupJSON                 = "backup.json"
+
+	
 )
 
 type GlobalOptions struct {
@@ -27,6 +29,7 @@ type CmdExtractOptions struct {
 	Exclude         []*regexp.Regexp
 	OutputDir       string
 	ExtractToSubDir bool
+	SkipCreateLinks bool
 }
 
 func NewOptionFromGlobalFlags(c *cli.Command) (*GlobalOptions, error) {
@@ -65,6 +68,7 @@ func NewCmdExtractOptions(c *cli.Command) (*CmdExtractOptions, error) {
 
 	op.OutputDir = c.String("output")
 	op.Include, op.Exclude = parseIncudeExclude(c.String("include"), c.String("exclude"))
+	op.SkipCreateLinks = c.Bool("skip-links")
 
 	return &op, nil
 }
