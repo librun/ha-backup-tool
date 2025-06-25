@@ -49,7 +49,7 @@ func Extract() *cli.Command {
 				Aliases: []string{"o"},
 				Usage:   "Directory for unpack files",
 			},
-			&cli.StringFlag{
+			&cli.BoolFlag{
 				Name:  flags.ExtractSkipCreateLinks,
 				Usage: "Skip create symlinks and hard links",
 			},
