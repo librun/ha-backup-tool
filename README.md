@@ -60,6 +60,8 @@ ha-backup-tool [GLOBAL OPTIONS] [command [COMMAND OPTIONS]] [ARGUMENTS...]
 
 command for decrypt and extract one or more backups
 
+> :warning: **If you are using Windows OS**: For correct work with symlinks and hard links you must run this command with **administrator rights** or change _Policy management_ from this [article](https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-10/security/threat-protection/security-policy-settings/create-symbolic-links)
+
 **Usage**:
     ha-backup-tool extract [command [command options]] files for extract backup home assistant in tar format
 
@@ -70,6 +72,8 @@ command for decrypt and extract one or more backups
 **--include, --ic**="": Include files (split value by ,)
 
 **--output, -o**="": Directory for unpack files
+
+**--skip-create-links**: Skip create symlinks and hard links
 
 #### Example
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/urfave/cli/v3"
 
+	"github.com/librun/ha-backup-tool/internal/flags"
 	"github.com/librun/ha-backup-tool/internal/options"
 	"github.com/librun/ha-backup-tool/internal/tarextractor"
 	"github.com/librun/ha-backup-tool/internal/utils"
@@ -34,19 +35,23 @@ func Extract() *cli.Command {
 		},
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:    "include",
+				Name:    flags.ExtractInclude,
 				Aliases: []string{"ic"},
 				Usage:   "Include files",
 			},
 			&cli.StringFlag{
-				Name:    "exclude",
+				Name:    flags.ExtractExclude,
 				Aliases: []string{"ec"},
 				Usage:   "Exclude files",
 			},
 			&cli.StringFlag{
-				Name:    "output",
+				Name:    flags.ExtractOutput,
 				Aliases: []string{"o"},
 				Usage:   "Directory for unpack files",
+			},
+			&cli.BoolFlag{
+				Name:  flags.ExtractSkipCreateLinks,
+				Usage: "Skip create symlinks and hard links",
 			},
 		},
 		Action: extractAction,

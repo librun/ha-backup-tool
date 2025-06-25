@@ -88,9 +88,13 @@ func (e *Extractor) extractTarItem(header *tar.Header, fp string) error {
 	case tar.TypeReg:
 		err = copyFile(fp, e.r, &e.ops)
 	case tar.TypeLink:
-		e.hl[fp] = header.Linkname
+		if !e.ops.SkipCreateLinks {
+			e.hl[fp] = header.Linkname
+		}
 	case tar.TypeSymlink:
-		err = os.Symlink(header.Linkname, fp)
+		if !e.ops.SkipCreateLinks {
+			err = os.Symlink(header.Linkname, fp)
+		}
 	default:
 		if e.ops.Verbose {
 			fmt.Printf("⚠️ ExtractTarGz: uknown type: %s in %s\n", string(header.Typeflag), header.Name)
@@ -107,6 +111,10 @@ func (e *Extractor) extractTarItem(header *tar.Header, fp string) error {
 }
 
 func (e *Extractor) createHardLinks() error {
+	if e.ops.SkipCreateLinks {
+		return nil
+	}
+
 	for n, o := range e.hl {
 		p, err := SanitizeArchivePath(e.o, o)
 		if err != nil {

@@ -9,11 +9,12 @@ import (
 	// "github.com/urfave/cli-docs/v3"
 
 	"github.com/librun/ha-backup-tool/internal/commands"
+	"github.com/librun/ha-backup-tool/internal/flags"
 )
 
 // AppVersion displays service version in semantic versioning (http://semver.org/).
 const (
-	AppVersion = "1.4.2"
+	AppVersion = "1.4.3"
 )
 
 func main() {
@@ -24,21 +25,21 @@ func main() {
 		Version:               AppVersion,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:    "emergency",
+				Name:    flags.GlobalEmergency,
 				Aliases: []string{"e"},
 				Usage:   "Filepath for emergency text file",
 			},
 			&cli.StringFlag{
-				Name:    "password",
+				Name:    flags.GlobalPassword,
 				Aliases: []string{"p"},
 				Usage:   "Password for decrypt backup",
 			},
 			&cli.StringFlag{
-				Name:  "max-archive-size",
+				Name:  flags.GlobalMaxArchiveSize,
 				Usage: "Max size for extract archive",
 			},
 			&cli.BoolFlag{
-				Name:  "verbose",
+				Name:  flags.GlobalVerbose,
 				Usage: "Verbose mode for output more information",
 			},
 		},

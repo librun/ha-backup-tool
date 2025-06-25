@@ -7,6 +7,7 @@ import (
 	"github.com/urfave/cli/v3"
 
 	"github.com/librun/ha-backup-tool/internal/datasize"
+	"github.com/librun/ha-backup-tool/internal/flags"
 	"github.com/librun/ha-backup-tool/internal/key"
 )
 
@@ -27,22 +28,23 @@ type CmdExtractOptions struct {
 	Exclude         []*regexp.Regexp
 	OutputDir       string
 	ExtractToSubDir bool
+	SkipCreateLinks bool
 }
 
 func NewOptionFromGlobalFlags(c *cli.Command) (*GlobalOptions, error) {
 	var op GlobalOptions
 
-	var e = c.String("emergency")
-	var p = c.String("password")
+	var e = c.String(flags.GlobalEmergency)
+	var p = c.String(flags.GlobalPassword)
 
 	op.Key = key.NewStorage(e, p)
 
-	if c.Bool("verbose") {
+	if c.Bool(flags.GlobalVerbose) {
 		op.Verbose = true
 	}
 
 	op.MaxArchiveSize = maxDecompressionSize
-	var msa = c.String("max-archive-size")
+	var msa = c.String(flags.GlobalMaxArchiveSize)
 	if msa != "" {
 		s, err := datasize.ParseDataSize(msa)
 		if err != nil {
@@ -63,8 +65,9 @@ func NewCmdExtractOptions(c *cli.Command) (*CmdExtractOptions, error) {
 
 	var op = CmdExtractOptions{GlobalOptions: *opg}
 
-	op.OutputDir = c.String("output")
-	op.Include, op.Exclude = parseIncudeExclude(c.String("include"), c.String("exclude"))
+	op.OutputDir = c.String(flags.ExtractOutput)
+	op.Include, op.Exclude = parseIncudeExclude(c.String(flags.ExtractInclude), c.String(flags.ExtractExclude))
+	op.SkipCreateLinks = c.Bool(flags.ExtractSkipCreateLinks)
 
 	return &op, nil
 }
