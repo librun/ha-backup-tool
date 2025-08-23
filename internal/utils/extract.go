@@ -24,7 +24,7 @@ type tarGzReader struct {
 
 //nolint:gochecknoglobals // This is const varible
 var (
-	backupJSONCryptSupport   = []string{"aes128"}
+	backupJSONCryptSupport   = []string{"", "aes128"}
 	backupJSONVersionSupport = []int{2}
 )
 
