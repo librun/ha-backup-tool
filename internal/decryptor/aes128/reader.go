@@ -1,4 +1,4 @@
-package decryptor
+package aes128
 
 import (
 	"crypto/aes"
