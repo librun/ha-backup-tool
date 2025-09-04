@@ -9,10 +9,10 @@ import (
 
 	"github.com/urfave/cli/v3"
 
+	"github.com/librun/ha-backup-tool/internal/extractor"
 	"github.com/librun/ha-backup-tool/internal/flags"
 	"github.com/librun/ha-backup-tool/internal/options"
 	"github.com/librun/ha-backup-tool/internal/tarextractor"
-	"github.com/librun/ha-backup-tool/internal/utils"
 )
 
 var (
@@ -43,6 +43,11 @@ func Extract() *cli.Command {
 				Name:    flags.ExtractExclude,
 				Aliases: []string{"ec"},
 				Usage:   "Exclude files",
+			},
+			&cli.StringFlag{
+				Name:    flags.ExtractCrypto,
+				Aliases: []string{"c"},
+				Usage:   "Type cryptography for decode archive",
 			},
 			&cli.StringFlag{
 				Name:    flags.ExtractOutput,
@@ -116,7 +121,7 @@ func extractAction(_ context.Context, c *cli.Command) error {
 func extractActionFile(f string, ops *options.CmdExtractOptions, wg *sync.WaitGroup) error {
 	defer wg.Done()
 
-	if err := utils.ValidateTarFile(f); err != nil {
+	if err := extractor.ValidateTarFile(f); err != nil {
 		if !ops.Verbose {
 			fmt.Printf("\n❌ File %s .tar not valid!\n", f)
 		} else {
@@ -126,7 +131,7 @@ func extractActionFile(f string, ops *options.CmdExtractOptions, wg *sync.WaitGr
 		return err
 	}
 
-	if err := utils.Extract(f, ops); err != nil {
+	if err := extractor.Extract(f, ops); err != nil {
 		fmt.Printf("⚠️ Last error processing %s: %s\n", f, err)
 
 		return err

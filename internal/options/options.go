@@ -7,6 +7,7 @@ import (
 	"github.com/urfave/cli/v3"
 
 	"github.com/librun/ha-backup-tool/internal/datasize"
+	"github.com/librun/ha-backup-tool/internal/decryptor"
 	"github.com/librun/ha-backup-tool/internal/flags"
 	"github.com/librun/ha-backup-tool/internal/key"
 )
@@ -26,6 +27,7 @@ type CmdExtractOptions struct {
 	GlobalOptions
 	Include         []*regexp.Regexp
 	Exclude         []*regexp.Regexp
+	Decryptor       *decryptor.Decryptor
 	OutputDir       string
 	ExtractToSubDir bool
 	SkipCreateLinks bool
@@ -68,6 +70,16 @@ func NewCmdExtractOptions(c *cli.Command) (*CmdExtractOptions, error) {
 	op.OutputDir = c.String(flags.ExtractOutput)
 	op.Include, op.Exclude = parseIncudeExclude(c.String(flags.ExtractInclude), c.String(flags.ExtractExclude))
 	op.SkipCreateLinks = c.Bool(flags.ExtractSkipCreateLinks)
+
+	decr := c.String(flags.ExtractCrypto)
+	if decr != "" {
+		d, errD := decryptor.ParseFromString(decr)
+		if errD != nil {
+			return nil, errD
+		}
+
+		op.Decryptor = &d
+	}
 
 	return &op, nil
 }

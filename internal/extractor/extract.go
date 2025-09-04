@@ -1,4 +1,4 @@
-package utils
+package extractor
 
 import (
 	"compress/gzip"
@@ -11,7 +11,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/librun/ha-backup-tool/internal/decryptor"
+	decryptor "github.com/librun/ha-backup-tool/internal/decryptor"
 	"github.com/librun/ha-backup-tool/internal/logger"
 	"github.com/librun/ha-backup-tool/internal/options"
 	"github.com/librun/ha-backup-tool/internal/tarextractor"
@@ -24,7 +24,6 @@ type tarGzReader struct {
 
 //nolint:gochecknoglobals // This is const varible
 var (
-	backupJSONCryptSupport   = []string{"aes128"}
 	backupJSONVersionSupport = []int{2}
 )
 
@@ -55,6 +54,11 @@ func Extract(file string, ops *options.CmdExtractOptions) error {
 		return nil
 	}
 
+	decr := e.GetDecryptor()
+	if ops.Decryptor != nil {
+		decr = *ops.Decryptor
+	}
+
 	// Look for tar.gz files in the extracted directory
 	sts := filterFilesBySuffix(d, tarextractor.ExtTarGz)
 	if len(sts) == 0 {
@@ -70,7 +74,7 @@ func Extract(file string, ops *options.CmdExtractOptions) error {
 		go func() {
 			defer wg.Done()
 
-			if errE := ExtractBackupItem(file, st, e.Protected, ops); errE != nil {
+			if errE := ExtractBackupItem(file, st, e.Protected, decr, ops); errE != nil {
 				if ops.Verbose {
 					fmt.Printf("❌ Failed extract from backup: %s/%s encrypted: %t Error: %s\n",
 						file, filepath.Base(st), e.Protected, errE)
@@ -154,7 +158,8 @@ func ValidateTarFile(p string) error {
 }
 
 // ExtractBackupItem - function for extract backup sub archive.
-func ExtractBackupItem(archName, fpath string, protected bool, ops *options.CmdExtractOptions) error {
+func ExtractBackupItem(archName, fpath string, protected bool, decryptor decryptor.Decryptor,
+	ops *options.CmdExtractOptions) error {
 	fn := filepath.Base(fpath)
 
 	var k string
@@ -166,7 +171,7 @@ func ExtractBackupItem(archName, fpath string, protected bool, ops *options.CmdE
 		}
 	}
 
-	r, err := newTarGzReader(fpath, k, protected)
+	r, err := newTarGzReader(fpath, k, protected, decryptor)
 	if err != nil {
 		return err
 	}
@@ -242,7 +247,7 @@ func getBackupJSON(file string, fl []string, ops *options.CmdExtractOptions) (*H
 		return e, nil
 	}
 
-	if err := validateBackupJSON(e); err != nil {
+	if err := e.InitAndValidate(); err != nil {
 		fmt.Printf("❌ Backup %s error validate %s: %s\n", file, options.BackupJSON, err)
 
 		return nil, ErrBackupJSONValidate
@@ -274,35 +279,7 @@ func openAndUnmarshalJSON(fpath string, v any) error {
 	return nil
 }
 
-func validateBackupJSON(e *HomeAssistantBackup) error {
-	var c = strings.ToLower(e.Crypto)
-	var cs bool
-	var vs bool
-
-	for _, s := range backupJSONCryptSupport {
-		if s == c {
-			cs = true
-		}
-	}
-
-	if !cs {
-		return fmt.Errorf("crypto type %s not support", e.Crypto) //nolint:err113 // Dynamic error
-	}
-
-	for _, s := range backupJSONVersionSupport {
-		if s == e.Version {
-			vs = true
-		}
-	}
-
-	if !vs {
-		return fmt.Errorf("version backup %d not support", e.Version) //nolint:err113 // Dynamic error
-	}
-
-	return nil
-}
-
-func newTarGzReader(filename, passwd string, protected bool) (*tarGzReader, error) {
+func newTarGzReader(filename, passwd string, protected bool, encrypt decryptor.Decryptor) (*tarGzReader, error) {
 	var re tarGzReader
 
 	var err error
@@ -317,7 +294,7 @@ func newTarGzReader(filename, passwd string, protected bool) (*tarGzReader, erro
 		return &re, nil
 	}
 
-	re.Reader, err = decryptor.NewReader(re.file, passwd)
+	re.Reader, err = decryptor.New(re.file, encrypt, passwd)
 	if err != nil {
 		return nil, err
 	}

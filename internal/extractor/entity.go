@@ -1,6 +1,12 @@
-package utils
+package extractor
 
-import "time"
+import (
+	"errors"
+	"fmt"
+	"time"
+
+	decryptor "github.com/librun/ha-backup-tool/internal/decryptor"
+)
 
 type (
 	HomeAssistantBackup struct {
@@ -24,5 +30,36 @@ type (
 			SupervisorBackupRequestDate time.Time `json:"supervisor.backup_request_date"`
 		} `json:"extra"`
 		Repositories []string `json:"repositories"`
+
+		decryptor decryptor.Decryptor `json:"-"`
 	}
 )
+
+func (e *HomeAssistantBackup) InitAndValidate() error {
+	var vs bool
+
+	var errD error
+	if e.decryptor, errD = decryptor.ParseFromString(e.Crypto); errD != nil {
+		if errors.Is(errD, decryptor.ErrDecryptorUnknown) {
+			return fmt.Errorf("crypto type %s not support", e.Crypto) //nolint:err113 // Dynamic error
+		}
+
+		return errD
+	}
+
+	for _, s := range backupJSONVersionSupport {
+		if s == e.Version {
+			vs = true
+		}
+	}
+
+	if !vs {
+		return fmt.Errorf("version backup %d not support", e.Version) //nolint:err113 // Dynamic error
+	}
+
+	return nil
+}
+
+func (e *HomeAssistantBackup) GetDecryptor() decryptor.Decryptor {
+	return e.decryptor
+}
