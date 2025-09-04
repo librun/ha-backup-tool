@@ -71,6 +71,8 @@ command for decrypt and extract one or more backups
 
 **--include, --ic**="": Include files (split value by ,)
 
+**--crypto string, -c**="": Type cryptography for decode archive (support values: aes128)
+
 **--output, -o**="": Directory for unpack files
 
 **--skip-create-links**: Skip create symlinks and hard links
