@@ -9,5 +9,6 @@ const (
 	ExtractInclude         = "include"
 	ExtractExclude         = "exclude"
 	ExtractOutput          = "output"
+	ExtractCrypto          = "crypto"
 	ExtractSkipCreateLinks = "skip-create-links"
 )

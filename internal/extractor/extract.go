@@ -54,6 +54,11 @@ func Extract(file string, ops *options.CmdExtractOptions) error {
 		return nil
 	}
 
+	decr := e.GetDecryptor()
+	if ops.Decryptor != nil {
+		decr = *ops.Decryptor
+	}
+
 	// Look for tar.gz files in the extracted directory
 	sts := filterFilesBySuffix(d, tarextractor.ExtTarGz)
 	if len(sts) == 0 {
@@ -69,7 +74,7 @@ func Extract(file string, ops *options.CmdExtractOptions) error {
 		go func() {
 			defer wg.Done()
 
-			if errE := ExtractBackupItem(file, st, e.Protected, e.GetDecryptor(), ops); errE != nil {
+			if errE := ExtractBackupItem(file, st, e.Protected, decr, ops); errE != nil {
 				if ops.Verbose {
 					fmt.Printf("❌ Failed extract from backup: %s/%s encrypted: %t Error: %s\n",
 						file, filepath.Base(st), e.Protected, errE)

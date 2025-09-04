@@ -45,6 +45,11 @@ func Extract() *cli.Command {
 				Usage:   "Exclude files",
 			},
 			&cli.StringFlag{
+				Name:    flags.ExtractCrypto,
+				Aliases: []string{"c"},
+				Usage:   "Type cryptography for decode archive",
+			},
+			&cli.StringFlag{
 				Name:    flags.ExtractOutput,
 				Aliases: []string{"o"},
 				Usage:   "Directory for unpack files",
