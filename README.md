@@ -3,19 +3,39 @@ Tool for work with Home Assistant Backup
 
 # Install
 
-## Way 1 - Download by bash (for Linux and MacOS)
+## Windows
+### Download binary
+Open [link](https://github.com/librun/ha-backup-tool/releases) choose platrom and download file   
+for windows - files ends with win-arm64.zip or win32.zip or win64.zip
+Unpack file and use
 
+## Linux
+### Way 1 - Download by bash
 ```bash
 wget -qO- https://github.com/librun/ha-backup-tool/releases/latest/download/ha-backup-tool-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m).tar.gz | tar -xz
 ```
-
-## Way 2 - Download binary (for Linux, MacOS, Windows)
-Open [link](https://github.com/librun/ha-backup-tool/releases) choose you OS & platrom and download file
+### Way 2 - Download binary
+Open [link](https://github.com/librun/ha-backup-tool/releases) choose platrom and download file   
+for linux - files ends with linux-arm64.tar.gz or linux-amd64.tar.gz or linux-i386.tar.gz   
 Unpack file and use
 
-## Way 3 - Build yourself (for All)
+## MacOS
+### Way 1 - Install by brew
+```
+brew install librun/tools/ha-backup-tool
+```
+### Way 2 - Download by bash
+```bash
+wget -qO- https://github.com/librun/ha-backup-tool/releases/latest/download/ha-backup-tool-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m).tar.gz | tar -xz
+```
+### Way 3 - Download binary
+Open [link](https://github.com/librun/ha-backup-tool/releases) choose platrom and download file   
+for macos - files ends with darwin-arm64.tar.gz or darwin-amd64.tar.gz   
+Unpack file and use
 
-run comand:
+## Other - Build yourself (for All os and platforms)
+1. install go - [guide](https://go.dev/doc/install)
+2. build and install binary exec file by run comand:
 ```bash
 go install github.com/librun/ha-backup-tool@latest
 ```
