@@ -91,7 +91,7 @@ command for decrypt and extract one or more backups
 
 **--include, --ic**="": Include files (split value by ,)
 
-**--crypto string, -c**="": Type cryptography for decode archive (support values: aes128)
+**--crypto string, -c**="": Version SecureTar for decode archive (support values: v2, v3)
 
 **--output, -o**="": Directory for unpack files
 

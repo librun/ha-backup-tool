@@ -3,14 +3,17 @@ package decryptor
 import (
 	"io"
 
-	"github.com/librun/ha-backup-tool/internal/decryptor/aes128"
+	v2 "github.com/librun/ha-backup-tool/internal/decryptor/v2"
+	v3 "github.com/librun/ha-backup-tool/internal/decryptor/v3"
 )
 
 func New(r io.Reader, t Decryptor, passwd string) (io.Reader, error) {
 	switch t {
-	case DecryptorAES128:
-		return aes128.NewReader(r, passwd)
-	default:
-		return nil, ErrDecryptorUnknown
+	case DecryptorSecureTarV2:
+		return v2.NewReader(r, passwd)
+	case DecryptorSecureTarV3:
+		return v3.NewReader(r, passwd)
 	}
+
+	return nil, ErrDecryptorUnknown
 }

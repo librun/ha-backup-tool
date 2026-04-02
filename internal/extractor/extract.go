@@ -2,7 +2,6 @@ package extractor
 
 import (
 	"compress/gzip"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -50,7 +49,7 @@ func Extract(file string, ops *options.CmdExtractOptions) error {
 		return err
 	}
 
-	if !e.Compressed {
+	if !e.IsCompressed() {
 		return nil
 	}
 
@@ -74,10 +73,10 @@ func Extract(file string, ops *options.CmdExtractOptions) error {
 		go func() {
 			defer wg.Done()
 
-			if errE := ExtractBackupItem(file, st, e.Protected, decr, ops); errE != nil {
+			if errE := ExtractBackupItem(file, st, e.IsProtected(), decr, ops); errE != nil {
 				if ops.Verbose {
 					fmt.Printf("❌ Failed extract from backup: %s/%s encrypted: %t Error: %s\n",
-						file, filepath.Base(st), e.Protected, errE)
+						file, filepath.Base(st), e.IsProtected(), errE)
 				}
 
 				lastErr = errE
@@ -208,8 +207,8 @@ func filterFilesBySuffix(fl []string, suffix string) []string {
 	return fltg
 }
 
-func getBackupJSON(file string, fl []string, ops *options.CmdExtractOptions) (*HomeAssistantBackup, error) {
-	var e *HomeAssistantBackup
+func getBackupJSON(file string, fl []string, ops *options.CmdExtractOptions) (*BackupConfig, error) {
+	var e *BackupConfig
 	var h bool
 	var hgz bool
 
@@ -225,7 +224,8 @@ func getBackupJSON(file string, fl []string, ops *options.CmdExtractOptions) (*H
 
 		if bn == options.BackupJSON {
 			h = true
-			if err := openAndUnmarshalJSON(f, &e); err != nil {
+			var err error
+			if e, err = BackupConfigUnmarshalJSON(f); err != nil {
 				fmt.Printf("❌ Backup %s error unmarshal %s: %s\n", file, options.BackupJSON, err)
 
 				return nil, ErrBackupJSONUnmarshal
@@ -238,10 +238,10 @@ func getBackupJSON(file string, fl []string, ops *options.CmdExtractOptions) (*H
 			fmt.Printf("⚠️ Backup %s not have %s\n", file, options.BackupJSON)
 		}
 
-		e = &HomeAssistantBackup{Compressed: hgz}
+		e = NewBackupConfig(hgz)
 
 		if ops.Key.IsEmKitPathSet() || ops.Key.IsPasswordSet() {
-			e.Protected = true
+			e.SetProtected(true)
 		}
 
 		return e, nil
@@ -254,29 +254,6 @@ func getBackupJSON(file string, fl []string, ops *options.CmdExtractOptions) (*H
 	}
 
 	return e, nil
-}
-
-func openAndUnmarshalJSON(fpath string, v any) error {
-	fo, err := os.Open(fpath)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err = fo.Close(); err != nil {
-			logger.Fatal("File: %s Error close file: %s", fpath, err)
-		}
-	}()
-
-	b, err := io.ReadAll(fo)
-	if err != nil {
-		return err
-	}
-
-	if err = json.Unmarshal(b, v); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func newTarGzReader(filename, passwd string, protected bool, encrypt decryptor.Decryptor) (*tarGzReader, error) {

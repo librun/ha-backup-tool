@@ -1,4 +1,4 @@
-package aes128
+package v2
 
 import (
 	"crypto/aes"
