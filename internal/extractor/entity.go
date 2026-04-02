@@ -29,7 +29,7 @@ func BackupConfigUnmarshalJSON(fpath string) (*BackupConfig, error) {
 	}
 	defer func() {
 		if err = fo.Close(); err != nil {
-			logger.Fatal("File: %s Error close file: %s", fpath, err)
+			logger.Fatalf("File: %s Error close file: %s", fpath, err)
 		}
 	}()
 

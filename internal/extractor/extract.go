@@ -112,7 +112,7 @@ func ExtractBackup(file string, ops *options.CmdExtractOptions) ([]string, error
 	}
 	defer func() {
 		if err = r.Close(); err != nil {
-			logger.Fatal("Backup: %s Error close file: %s", file, err)
+			logger.Fatalf("Backup: %s Error close file: %s", file, err)
 		}
 	}()
 
@@ -176,7 +176,7 @@ func ExtractBackupItem(archName, fpath string, protected bool, decryptor decrypt
 	}
 	defer func() {
 		if err = r.Close(); err != nil {
-			logger.Fatal("File %s/%s Error close file: %s", archName, fn, err)
+			logger.Fatalf("File %s/%s Error close file: %s", archName, fn, err)
 		}
 	}()
 

@@ -3,7 +3,7 @@ package v2_test
 import (
 	"testing"
 
-	"github.com/librun/ha-backup-tool/internal/decryptor/v2"
+	v2 "github.com/librun/ha-backup-tool/internal/decryptor/v2"
 )
 
 func TestGenerateIv(t *testing.T) {

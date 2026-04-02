@@ -28,6 +28,7 @@ const (
 )
 
 var (
+	ErrDecryptorIsEmpty = errors.New("decryptor not set")
 	ErrDecryptorUnknown = errors.New("decryptor not support")
 )
 
