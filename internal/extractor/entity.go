@@ -49,14 +49,12 @@ func (b *BackupConfig) InitAndValidate() error {
 	var vs bool
 
 	var errD error
-	if b.decryptor == decryptor.DecryptorSecureTarEmpty {
-		if b.decryptor, errD = decryptor.ParseFromBackupJSON(b.e); errD != nil {
-			if errors.Is(errD, decryptor.ErrDecryptorUnknown) {
-				return fmt.Errorf("crypto type %s not support", b.e.Crypto) //nolint:err113 // Dynamic error
-			}
-
-			return errD
+	if b.decryptor, errD = decryptor.ParseFromBackupJSON(b.e, b.decryptor); errD != nil {
+		if errors.Is(errD, decryptor.ErrDecryptorUnknown) {
+			return fmt.Errorf("crypto type %s not support", b.e.Crypto) //nolint:err113 // Dynamic error
 		}
+
+		return errD
 	}
 
 	for _, s := range backupJSONVersionSupport {

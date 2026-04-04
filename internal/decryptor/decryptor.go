@@ -9,8 +9,9 @@ import (
 
 func New(r io.Reader, t Decryptor, passwd string) (io.Reader, error) {
 	switch t {
-	case DecryptorSecureTarEmpty:
-		return nil, ErrDecryptorIsEmpty
+	case DecryptorSecureTarAuto:
+	case DecryptorSecureTarV1:
+		return nil, ErrDecryptorV1NotSupported
 	case DecryptorSecureTarV2:
 		return v2.NewReader(r, passwd)
 	case DecryptorSecureTarV3:

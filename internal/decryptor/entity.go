@@ -11,15 +11,18 @@ import (
 type Decryptor int
 
 const (
-	DecryptorSecureTarEmpty Decryptor = iota
+	DecryptorSecureTarAuto Decryptor = iota
+	DecryptorSecureTarV1
 	DecryptorSecureTarV2
 	DecryptorSecureTarV3
 )
 
 const (
-	DecryptorSecureTarV2String = "v2"
-	DecryptorSecureTarV3String = "v3"
-	DecryptorUnknownString     = "unknown"
+	DecryptorSecureTarAutoString = "auto"
+	DecryptorSecureTarV1String   = "v1"
+	DecryptorSecureTarV2String   = "v2"
+	DecryptorSecureTarV3String   = "v3"
+	DecryptorUnknownString       = "unknown"
 )
 
 const (
@@ -28,18 +31,20 @@ const (
 )
 
 var (
-	ErrDecryptorIsEmpty = errors.New("decryptor not set")
-	ErrDecryptorUnknown = errors.New("decryptor not support")
+	ErrDecryptorUnknown        = errors.New("decryptor not support")
+	ErrDecryptorV1NotSupported = errors.New("SecureTar v1 not support")
 )
 
 func (d Decryptor) String() string {
 	switch d {
-	case DecryptorSecureTarEmpty:
-		return ""
+	case DecryptorSecureTarAuto:
+		return DecryptorSecureTarAutoString
+	case DecryptorSecureTarV1:
+		return DecryptorSecureTarV1String
 	case DecryptorSecureTarV2:
 		return DecryptorSecureTarV2String
 	case DecryptorSecureTarV3:
-		return DecryptorSecureTarV2String
+		return DecryptorSecureTarV3String
 	default:
 		return DecryptorUnknownString
 	}
@@ -48,7 +53,9 @@ func (d Decryptor) String() string {
 func ParseFromString(s string) (Decryptor, error) {
 	switch strings.ToLower(s) {
 	case "":
-		return DecryptorSecureTarEmpty, nil
+		return DecryptorSecureTarAuto, nil
+	case DecryptorSecureTarV1String:
+		return DecryptorSecureTarV1, ErrDecryptorV1NotSupported
 	case DecryptorSecureTarV2String:
 		return DecryptorSecureTarV2, nil
 	case DecryptorSecureTarV3String:
@@ -58,9 +65,13 @@ func ParseFromString(s string) (Decryptor, error) {
 	return 0, ErrDecryptorUnknown
 }
 
-func ParseFromBackupJSON(e *entity.HomeAssistantBackup) (Decryptor, error) {
+func ParseFromBackupJSON(e *entity.HomeAssistantBackup, d Decryptor) (Decryptor, error) {
 	if !strings.EqualFold(e.Crypto, DecryptorAES128) {
 		return 0, ErrDecryptorUnknown
+	}
+
+	if d != DecryptorSecureTarAuto {
+		return d, nil
 	}
 
 	c := semver.Compare("v"+DecryptorSecureTarV3From, "v"+e.Homeassistant.Version)

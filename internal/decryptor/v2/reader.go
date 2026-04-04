@@ -25,14 +25,13 @@ var (
 
 // A Reader is an io.Reader that can be read to retrieve decrypted data from a AES CBC crypted file.
 type Reader struct {
-	beginning bool
-	key       []byte
-	mu        sync.Mutex
-	r         io.Reader
-	iv        []byte
-	block     cipher.Block
-	size      uint64
-	mode      cipher.BlockMode
+	key   []byte
+	mu    sync.Mutex
+	r     io.Reader
+	iv    []byte
+	block cipher.Block
+	size  uint64
+	mode  cipher.BlockMode
 }
 
 // NewAesCbcReader returns an AES-CBC reader.
@@ -47,25 +46,24 @@ func NewReader(r io.Reader, passwd string) (*Reader, error) {
 		return nil, err
 	}
 
-	return &Reader{
-		beginning: true,
-		key:       key,
-		r:         r,
-		block:     block,
-		iv:        make([]byte, block.BlockSize()),
-	}, err
+	ro := Reader{
+		key:   key,
+		r:     r,
+		block: block,
+		iv:    make([]byte, block.BlockSize()),
+	}
+
+	if _, err = ro.readInfoBytes(); err != nil {
+		return nil, err
+	}
+
+	return &ro, err
 }
 
 // Read implements io.Reader interface,
 func (r *Reader) Read(p []byte) (int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
-	if r.beginning {
-		if n, err := r.readInfoBytes(); err != nil {
-			return n, err
-		}
-	}
 
 	n, err := r.r.Read(p)
 	if err != nil && errors.Is(err, io.EOF) {
@@ -98,7 +96,6 @@ func (r *Reader) readInfoBytes() (int, error) {
 	if n != len(r.iv) {
 		return 0, ErrNotEnoughBytes
 	}
-	r.beginning = false
 
 	// Securetar added uncrypt info in first 16 bytes
 	if string(r.iv) == SecuretarMagic {
