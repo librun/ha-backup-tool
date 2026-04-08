@@ -88,6 +88,10 @@ func (r *Reader) Read(p []byte) (int, error) {
 	return n, err
 }
 
+func (r *Reader) Close() error {
+	return nil
+}
+
 func (r *Reader) readInfoBytes() (int, error) {
 	n, err := io.ReadFull(r.r, r.iv)
 	if err != nil {

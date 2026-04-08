@@ -7,7 +7,12 @@ import (
 	v3 "github.com/librun/ha-backup-tool/internal/decryptor/v3"
 )
 
-func New(r io.Reader, t Decryptor, passwd string) (io.Reader, error) {
+type Reader interface {
+	Read(p []byte) (n int, err error)
+	Close() error
+}
+
+func New(r io.Reader, t Decryptor, passwd string) (Reader, error) {
 	switch t {
 	case DecryptorSecureTarAuto:
 	case DecryptorSecureTarV1:

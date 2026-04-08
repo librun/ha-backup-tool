@@ -17,7 +17,7 @@ import (
 )
 
 type tarGzReader struct {
-	io.Reader
+	decryptor.Reader
 	file *os.File
 }
 
@@ -112,7 +112,7 @@ func ExtractBackup(file string, ops *options.CmdExtractOptions) ([]string, error
 	}
 	defer func() {
 		if err = r.Close(); err != nil {
-			logger.Fatalf("Backup: %s Error close file: %s", file, err)
+			logger.Fatalf("Backup: %s Error close file: %v", file, err)
 		}
 	}()
 
@@ -176,7 +176,7 @@ func ExtractBackupItem(archName, fpath string, protected bool, decryptor decrypt
 	}
 	defer func() {
 		if err = r.Close(); err != nil {
-			logger.Fatalf("File %s/%s Error close file: %s", archName, fn, err)
+			logger.Fatalf("File %s/%s Error close file: %v", archName, fn, err)
 		}
 	}()
 
@@ -281,10 +281,12 @@ func newTarGzReader(filename, passwd string, protected bool, encrypt decryptor.D
 
 func (r *tarGzReader) Close() error {
 	if r.file != nil {
-		return r.file.Close()
+		if err := r.file.Close(); err != nil {
+			return err
+		}
 	}
 
-	return nil
+	return r.Reader.Close()
 }
 
 // extractTarGz - unpack tar.gz files after encrypt
