@@ -34,11 +34,13 @@ function make_release() {
     case "${os}" in
     linux | darwin)
         tar -zcvf "${release_name}.tar.gz" "${release_name}"
-        md5sum "${release_name}.tar.gz" >>checksum.txt
+        md5sum "${release_name}.tar.gz" >>checksum-md5.txt
+        sha256sum "${release_name}.tar.gz" >>checksum-sha256.txt
         ;;
     windows)
         zip -r "${release_name}.zip" "${release_name}"
-        md5sum "${release_name}.zip" >>checksum.txt
+        md5sum "${release_name}.zip" >>checksum-md5.txt
+        sha256sum "${release_name}.zip" >>checksum-sha256.txt
         ;;
     esac
     rm -r "${release_name}"
@@ -48,6 +50,7 @@ function make_release() {
 cleanup
 
 touch ${BUILD_DIR}/checksum.txt
+touch ${BUILD_DIR}/checksum-sha256.txt
 
 make_release 386 linux "${NAME}-linux-i386"
 make_release amd64 linux "${NAME}-linux-amd64"
