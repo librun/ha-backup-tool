@@ -14,7 +14,7 @@ import (
 
 // AppVersion displays service version in semantic versioning (http://semver.org/).
 const (
-	AppVersion = "1.5.0"
+	AppVersion = "1.5.1"
 )
 
 func main() {
