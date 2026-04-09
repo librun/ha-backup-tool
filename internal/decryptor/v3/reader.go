@@ -25,7 +25,7 @@ const (
 	ValidationKeyLen  = 32
 	DecodeSaltLen     = 16
 
-	argnoTimeLimit = 8
+	argonTimeLimit = 8
 	argonMemLimit  = 16 * 1024 // 16 MB
 	argonThreads   = 1
 
@@ -57,9 +57,9 @@ type Reader struct {
 	reader        io.Reader
 	decryptor     secretstream.Decryptor
 	decryptedData []byte
-	offset        int
-	totalRead     uint64
-	totalSize     uint64
+	Offset        int
+	TotalRead     uint64
+	TotalSize     uint64
 }
 
 type Header struct {
@@ -93,24 +93,25 @@ func NewReader(r io.Reader, password string) (*Reader, error) {
 		return nil, err
 	}
 
-	ro := Reader{reader: r, decryptor: d}
-	ro.SetTotalSize(h.MetaData[:8])
-
-	return &ro, nil
+	return &Reader{
+		reader:    r,
+		decryptor: d,
+		TotalSize: binary.BigEndian.Uint64(h.MetaData[:8]),
+	}, nil
 }
 
 func (r *Reader) Read(p []byte) (int, error) {
-	if len(r.decryptedData)-r.offset >= len(p) {
-		n := copy(p, r.decryptedData[r.offset:r.offset+len(p)])
-		r.offset += n
+	if len(r.decryptedData)-r.Offset >= len(p) {
+		n := copy(p, r.decryptedData[r.Offset:r.Offset+len(p)])
+		r.Offset += n
 
 		return n, nil
 	}
 
 	n := 0
-	if r.offset < len(r.decryptedData) {
-		n = copy(p, r.decryptedData[r.offset:])
-		r.offset = len(r.decryptedData)
+	if r.Offset < len(r.decryptedData) {
+		n = copy(p, r.decryptedData[r.Offset:])
+		r.Offset = len(r.decryptedData)
 	}
 
 	if err := r.GetNextChunk(); err != nil {
@@ -129,17 +130,9 @@ func (r *Reader) Read(p []byte) (int, error) {
 
 	m := copy(p[n:], r.decryptedData)
 	n += m
-	r.offset = m
+	r.Offset = m
 
 	return n, nil
-}
-
-func (r *Reader) SetTotalSize(size []byte) {
-	r.totalSize = binary.BigEndian.Uint64(size)
-}
-
-func (r *Reader) IncTotalRead(size uint64) {
-	r.totalRead += size
 }
 
 func (r *Reader) GetNextChunk() error {
@@ -150,7 +143,7 @@ func (r *Reader) GetNextChunk() error {
 	defer bufferPool.Put(b)
 
 	r.decryptedData = r.decryptedData[:0]
-	r.offset = 0
+	r.Offset = 0
 
 	n, err := io.ReadFull(r.reader, *b)
 	if err != nil {
@@ -174,18 +167,18 @@ func (r *Reader) GetNextChunk() error {
 	}
 
 	r.decryptedData = append(r.decryptedData[:0], decrypted...)
-	if uint64(len(r.decryptedData))+r.totalRead > r.totalSize {
+	if uint64(len(r.decryptedData))+r.TotalRead > r.TotalSize {
 		return ErrReadOverflow
 	}
 
-	r.IncTotalRead(uint64(len(r.decryptedData)))
+	r.TotalRead += uint64(len(r.decryptedData))
 
 	return nil
 }
 
 // Close - close reader and check if all data was read.
 func (r *Reader) Close() error {
-	if r.totalSize != r.totalRead {
+	if r.TotalSize != r.TotalRead {
 		return ErrReadIncomplete
 	}
 
@@ -245,7 +238,7 @@ func GetKey(h *Header, password string) []byte {
 	return argon2.IDKey(
 		[]byte(password),
 		h.RootSalt[:],
-		argnoTimeLimit,
+		argonTimeLimit,
 		argonMemLimit,
 		argonThreads,
 		chacha20poly1305.KeySize,
@@ -253,8 +246,8 @@ func GetKey(h *Header, password string) []byte {
 }
 
 func GetBlake2bKey(key []byte, salt [16]byte) ([]byte, error) {
-	// golang not support salt and personal in standart lib issue https://github.com/golang/go/issues/32447
-	// after close issue replace archive package "github.com/minio/blake2b-simd" to "golang.org/x/crypto/blake2b"
+	// golang not support salt and personal in standard lib issue https://github.com/golang/go/issues/32447
+	// after issue is closed replace archive package "github.com/minio/blake2b-simd" to "golang.org/x/crypto/blake2b"
 	h, err := blake2b.New(&blake2b.Config{
 		Size:   ValidationKeyLen,
 		Key:    key,

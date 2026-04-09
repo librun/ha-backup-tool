@@ -150,8 +150,36 @@ func TestNewReader_IncorrectPassword(t *testing.T) {
 }
 
 func TestReader_Read_EOF(t *testing.T) {
-	// Test with empty reader
-	r, _ := v3.NewReader(bytes.NewReader([]byte{}), "")
+	headerData := make([]byte, v3.HeaderSize)
+	copy(headerData[0:v3.SecuretarMagicLen], []byte(v3.SecuretarMagic))
+	binary.BigEndian.PutUint64(headerData[v3.SecuretarMagicLen:v3.SecuretarMagicLen+8], 0)
+
+	rootSaltPos := v3.SecuretarMagicLen + v3.MetaDataLen
+	copy(headerData[rootSaltPos:rootSaltPos+v3.RootSaltLen], []byte("rootSalt012345678"))
+
+	validationSaltPos := rootSaltPos + v3.RootSaltLen
+	copy(headerData[validationSaltPos:validationSaltPos+v3.ValidationSaltLen], []byte("validSalt0123456"))
+
+	validationKeyPos := validationSaltPos + v3.ValidationSaltLen
+	decodeSaltPos := validationKeyPos + v3.ValidationKeyLen
+	copy(headerData[decodeSaltPos:decodeSaltPos+v3.DecodeSaltLen], []byte("decodeSalt012345"))
+	copy(headerData[decodeSaltPos+v3.DecodeSaltLen:], make([]byte, chacha20poly1305.NonceSizeX))
+
+	h := &v3.Header{}
+	copy(h.RootSalt[:], headerData[rootSaltPos:rootSaltPos+v3.RootSaltLen])
+	copy(h.ValidationSalt[:], headerData[validationSaltPos:validationSaltPos+v3.ValidationSaltLen])
+
+	argonKey := v3.GetKey(h, "")
+	vk, err := v3.GetBlake2bKey(argonKey, h.ValidationSalt)
+	if err != nil {
+		t.Fatalf("GetBlake2bKey failed: %v", err)
+	}
+	copy(headerData[validationKeyPos:validationKeyPos+v3.ValidationKeyLen], vk)
+
+	r, err := v3.NewReader(bytes.NewReader(headerData), "")
+	if err != nil {
+		t.Fatalf("NewReader failed: %v", err)
+	}
 
 	buf := make([]byte, 10)
 	n, err := r.Read(buf)
@@ -161,7 +189,8 @@ func TestReader_Read_EOF(t *testing.T) {
 }
 
 func TestReader_Close_Incomplete(t *testing.T) {
-	r := &v3.Reader{TotalSize: 100, TotalRead: 50}
+	r := &v3.Reader{TotalRead: 50, TotalSize: 100}
+
 	err := r.Close()
 	if err != v3.ErrReadIncomplete {
 		t.Errorf("Expected ErrReadIncomplete, got %v", err)
@@ -169,7 +198,8 @@ func TestReader_Close_Incomplete(t *testing.T) {
 }
 
 func TestReader_Close_Complete(t *testing.T) {
-	r := &v3.Reader{TotalSize: 100, TotalRead: 100}
+	r := &v3.Reader{TotalRead: 100, TotalSize: 100}
+
 	err := r.Close()
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
