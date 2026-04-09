@@ -45,7 +45,7 @@ jobs:
           go-version: '1.26'
 
       - name: Make release executable
-        run: chmod +x ./release.sh
+        run: chmod +x ./build/release.sh
 
       - name: Run release script
         run: |
