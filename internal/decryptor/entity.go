@@ -4,8 +4,8 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/hashicorp/go-version"
 	"github.com/librun/ha-backup-tool/internal/entity"
-	"golang.org/x/mod/semver"
 )
 
 type Decryptor int
@@ -26,12 +26,14 @@ const (
 )
 
 const (
-	DecryptorSecureTarV3From = "2026.3.4"
-	DecryptorAES128          = "aes128"
+	v3FromSupervisor = ">= 2026.3.1"
+	v3FromCore       = ">= 2026.3.0"
+	cryptoAES128     = "aes128"
 )
 
 var (
 	ErrDecryptorUnknown        = errors.New("decryptor not support")
+	ErrGetVersion              = errors.New("version in config not valid")
 	ErrDecryptorV1NotSupported = errors.New("SecureTar v1 not support")
 )
 
@@ -66,7 +68,7 @@ func ParseFromString(s string) (Decryptor, error) {
 }
 
 func ParseFromBackupJSON(e *entity.HomeAssistantBackup, d Decryptor) (Decryptor, error) {
-	if !strings.EqualFold(e.Crypto, DecryptorAES128) {
+	if !strings.EqualFold(e.Crypto, cryptoAES128) {
 		return 0, ErrDecryptorUnknown
 	}
 
@@ -74,8 +76,25 @@ func ParseFromBackupJSON(e *entity.HomeAssistantBackup, d Decryptor) (Decryptor,
 		return d, nil
 	}
 
-	c := semver.Compare("v"+DecryptorSecureTarV3From, "v"+e.Homeassistant.Version)
-	if c > 0 {
+	vsc, err := version.NewConstraint(v3FromSupervisor)
+	if err != nil {
+		return 0, ErrGetVersion
+	}
+	vs, err := version.NewVersion(e.SupervisorVersion)
+	if err != nil {
+		return 0, ErrGetVersion
+	}
+
+	vcc, err := version.NewConstraint(v3FromCore)
+	if err != nil {
+		return 0, ErrGetVersion
+	}
+	vc, err := version.NewVersion(e.Homeassistant.Version)
+	if err != nil {
+		return 0, ErrGetVersion
+	}
+
+	if !vsc.Check(vs) || !vcc.Check(vc) {
 		return DecryptorSecureTarV2, nil
 	}
 
