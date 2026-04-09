@@ -2,9 +2,6 @@ name: Build App
 
 on:
   workflow_dispatch: {}
-  push:
-    tags:
-      - 'v*'
 
 # env:
 
@@ -46,12 +43,14 @@ jobs:
         run: chmod +x ./release.sh
 
       - name: Run release script
-        run: ./release.sh
+        run: |
+          source ./release.sh
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: "v${VERSION}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

@@ -3,7 +3,7 @@
 CURRENT_DIR=$(dirname "$(realpath $0)")
 BUILD_DIR="${CURRENT_DIR}/build"
 NAME="ha-backup-tool"
-VERSION=$(cat ./main.go | grep -i -E "AppVersion\s+=" | cut -d'=' -f2 | tr -d '"' | tr -d '[:space:]')
+export VERSION=$(cat ./main.go | grep -i -E "AppVersion\s+=" | cut -d'=' -f2 | tr -d '"' | tr -d '[:space:]')
 
 echo "Application version ${VERSION}"
 
@@ -52,13 +52,13 @@ cleanup
 touch ${BUILD_DIR}/checksum-md5.txt
 touch ${BUILD_DIR}/checksum-sha256.txt
 
-make_release 386 linux "${NAME}-linux-i386"
-make_release amd64 linux "${NAME}-linux-amd64"
-make_release arm64 linux "${NAME}-linux-arm64"
+# make_release 386 linux "${NAME}-linux-i386"
+# make_release amd64 linux "${NAME}-linux-amd64"
+# make_release arm64 linux "${NAME}-linux-arm64"
 
-make_release 386 windows "${NAME}-win32" .exe
-make_release amd64 windows "${NAME}-win64" .exe
-make_release arm64 windows "${NAME}-win-arm64" .exe
+# make_release 386 windows "${NAME}-win32" .exe
+# make_release amd64 windows "${NAME}-win64" .exe
+# make_release arm64 windows "${NAME}-win-arm64" .exe
 
-make_release amd64 darwin "${NAME}-darwin-amd64"
-make_release arm64 darwin "${NAME}-darwin-arm64"
+# make_release amd64 darwin "${NAME}-darwin-amd64"
+# make_release arm64 darwin "${NAME}-darwin-arm64"
