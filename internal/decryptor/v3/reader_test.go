@@ -55,7 +55,7 @@ func TestReadHeader_InvalidMagic(t *testing.T) {
 
 	r := bytes.NewReader(headerData)
 	_, err := v3.ReadHeader(r)
-	if errors.Is(err, v3.ErrInvalidHeader) {
+	if !errors.Is(err, v3.ErrInvalidHeader) {
 		t.Errorf("Expected ErrInvalidHeader, got %v", err)
 	}
 }
@@ -121,7 +121,7 @@ func TestValidatePassword_Incorrect(t *testing.T) {
 	wrongKey[0] = 1
 
 	err := v3.ValidatePassword(h, wrongKey)
-	if errors.Is(err, v3.ErrIncorrectPassword) {
+	if !errors.Is(err, v3.ErrIncorrectPassword) {
 		t.Errorf("Expected ErrIncorrectPassword, got %v", err)
 	}
 }
@@ -309,29 +309,32 @@ func buildTestV3Stream(t *testing.T, password string, plaintext []byte, totalSiz
 
 	binary.BigEndian.PutUint64(h.MetaData[:8], totalSize)
 
-	buf := make([]byte, v3.HeaderSize)
-	copy(buf[0:v3.SecuretarMagicLen], []byte(v3.SecuretarMagic))
-	rh := v3.SecuretarMagicLen
-	copy(buf[rh:rh+v3.MetaDataLen], h.MetaData[:])
-	rh += v3.MetaDataLen
-	copy(buf[rh:rh+v3.RootSaltLen], h.RootSalt[:])
-	rh += v3.RootSaltLen
-	copy(buf[rh:rh+v3.ValidationSaltLen], h.ValidationSalt[:])
-	rh += v3.ValidationSaltLen
-	copy(buf[rh:rh+v3.ValidationKeyLen], h.ValidationKey[:])
-	rh += v3.ValidationKeyLen
-	copy(buf[rh:rh+v3.DecodeSaltLen], h.DecodeSalt[:])
-	rh += v3.DecodeSaltLen
-	copy(buf[rh:rh+chacha20poly1305.NonceSizeX], h.ChachaHeader[:])
+	headerBytes := makeV3HeaderBytes(h, totalSize)
 
 	encrypted, err := encryptor.Push(plaintext, secretstream.TagPush)
 	if err != nil {
 		t.Fatalf("Encryptor.Push failed: %v", err)
 	}
 
-	out := make([]byte, 0, len(buf)+len(encrypted))
-	out = append(out, buf...)
-	out = append(out, encrypted...)
+	return append(headerBytes, encrypted...)
+}
 
-	return out
+func makeV3HeaderBytes(h *v3.Header, totalSize uint64) []byte {
+	buf := make([]byte, 0, v3.HeaderSize)
+
+	magic := make([]byte, v3.SecuretarMagicLen)
+	copy(magic, []byte(v3.SecuretarMagic))
+	buf = append(buf, magic...)
+
+	meta := make([]byte, v3.MetaDataLen)
+	binary.BigEndian.PutUint64(meta[:8], totalSize)
+	buf = append(buf, meta...)
+
+	buf = append(buf, h.RootSalt[:]...)
+	buf = append(buf, h.ValidationSalt[:]...)
+	buf = append(buf, h.ValidationKey[:]...)
+	buf = append(buf, h.DecodeSalt[:]...)
+	buf = append(buf, h.ChachaHeader[:]...)
+
+	return buf
 }
