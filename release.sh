@@ -8,7 +8,9 @@ export VERSION=$(cat ./main.go | grep -i -E "AppVersion\s+=" | cut -d'=' -f2 | t
 echo "Application version ${VERSION}"
 
 cleanup() {
-    rm -rf ${BUILD_DIR}/*
+    if [[ -d ${BUILD_DIR} ]]; then
+      rm -rf ${BUILD_DIR}/*
+    fi
 }
 
 function make_release() {
@@ -49,16 +51,24 @@ function make_release() {
 
 cleanup
 
+if [[ ! -d ${BUILD_DIR} ]]; then
+  mkdir -p "${BUILD_DIR}"
+fi
+
 touch ${BUILD_DIR}/checksum-md5.txt
 touch ${BUILD_DIR}/checksum-sha256.txt
 
-# make_release 386 linux "${NAME}-linux-i386"
-# make_release amd64 linux "${NAME}-linux-amd64"
-# make_release arm64 linux "${NAME}-linux-arm64"
+make_release 386 linux "${NAME}-linux-i386"
+make_release amd64 linux "${NAME}-linux-amd64"
+make_release arm64 linux "${NAME}-linux-arm64"
 
-# make_release 386 windows "${NAME}-win32" .exe
-# make_release amd64 windows "${NAME}-win64" .exe
-# make_release arm64 windows "${NAME}-win-arm64" .exe
+make_release 386 windows "${NAME}-win32" .exe
+make_release amd64 windows "${NAME}-win64" .exe
+make_release arm64 windows "${NAME}-win-arm64" .exe
 
-# make_release amd64 darwin "${NAME}-darwin-amd64"
-# make_release arm64 darwin "${NAME}-darwin-arm64"
+make_release amd64 darwin "${NAME}-darwin-amd64"
+make_release arm64 darwin "${NAME}-darwin-arm64"
+
+echo "############################"
+echo "## Completed successfully ##"
+echo "############################"
