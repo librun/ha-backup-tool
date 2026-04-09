@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 
+CURRENT_DIR=$(dirname "$(realpath $0)")
+BUILD_PATH="."
 NAME="ha-backup-tool"
-export VERSION=$(cat ../main.go | grep -i -E "AppVersion\s+=" | cut -d'=' -f2 | tr -d '"' | tr -d '[:space:]')
+export VERSION=$(cat ${BUILD_PATH}/../main.go | grep -i -E "AppVersion\s+=" | cut -d'=' -f2 | tr -d '"' | tr -d '[:space:]')
 
 echo "Application version ${VERSION}"
+echo "Build path ${CURRENT_DIR}"
 
 cleanup() {
-    rm -f ./checksum*.txt
-    rm -f ./ha-backup-tool*.tar.gz
-    rm -f ./ha-backup-tool*.zip
+    rm -f ${BUILD_PATH}/checksum*.txt
+    rm -f ${BUILD_PATH}/ha-backup-tool*.tar.gz
+    rm -f ${BUILD_PATH}/ha-backup-tool*.zip
 }
 
 function make_release() {
@@ -21,14 +24,14 @@ function make_release() {
     fi
     local ext="$4"
 
-    local dir="${release_name}"
+    local dir="${BUILD_PATH}/${release_name}"
 
     mkdir -p "${dir}"
     env GOARCH="${arch}" GOOS="${os}" CGO_ENABLED=0 go build -o "${dir}/${NAME}${ext}" ../
 
-    cp ../LICENSE "${dir}"
-    cp ../README.md "${dir}"
-    #cp ../CHANGELOG.md "${dir}"
+    cp ${BUILD_PATH}/../LICENSE "${dir}"
+    cp ${BUILD_PATH}/../README.md "${dir}"
+    #cp ${BUILD_PATH}/../CHANGELOG.md "${dir}"
 
     case "${os}" in
     linux | darwin)
