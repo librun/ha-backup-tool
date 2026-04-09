@@ -17,7 +17,7 @@ import (
 )
 
 type tarGzReader struct {
-	decryptor.Reader
+	io.ReadCloser
 	file *os.File
 }
 
@@ -266,12 +266,12 @@ func newTarGzReader(filename, passwd string, protected bool, encrypt decryptor.D
 	}
 
 	if !protected {
-		re.Reader = re.file
+		re.ReadCloser = re.file
 
 		return &re, nil
 	}
 
-	re.Reader, err = decryptor.New(re.file, encrypt, passwd)
+	re.ReadCloser, err = decryptor.New(re.file, encrypt, passwd)
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +286,7 @@ func (r *tarGzReader) Close() error {
 		}
 	}
 
-	return r.Reader.Close()
+	return r.ReadCloser.Close()
 }
 
 // extractTarGz - unpack tar.gz files after encrypt

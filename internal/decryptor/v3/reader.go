@@ -1,11 +1,11 @@
 package v3
 
 import (
+	"bytes"
 	"crypto/subtle"
 	"encoding/binary"
 	"errors"
 	"io"
-	"strings"
 	"sync"
 
 	"github.com/minio/blake2b-simd"
@@ -15,22 +15,22 @@ import (
 )
 
 const (
-	securetarMagic = "SecureTar\x03"
+	SecuretarMagic = "SecureTar\x03"
 	blake2bPerson  = "SecureTarv3"
 
-	securetarMagicLen = 16
-	metaDataLen       = 16
-	rootSaltLen       = 16
-	validationSaltLen = 16
-	validationKeyLen  = 32
-	decodeSaltLen     = 16
+	SecuretarMagicLen = 16
+	MetaDataLen       = 16
+	RootSaltLen       = 16
+	ValidationSaltLen = 16
+	ValidationKeyLen  = 32
+	DecodeSaltLen     = 16
 
 	argnoTimeLimit = 8
 	argonMemLimit  = 16 * 1024 // 16 MB
 	argonThreads   = 1
 
-	headerSize = securetarMagicLen + metaDataLen + rootSaltLen + validationSaltLen +
-		validationKeyLen + decodeSaltLen + chacha20poly1305.NonceSizeX
+	HeaderSize = SecuretarMagicLen + MetaDataLen + RootSaltLen + ValidationSaltLen +
+		ValidationKeyLen + DecodeSaltLen + chacha20poly1305.NonceSizeX
 
 	secretStreamChunkDataSize = 1024 * 1024 // V3_SECRETSTREAM_CHUNK_SIZE
 	secretStreamChunkSize     = secretStreamChunkDataSize + secretstream.StreamABytes
@@ -40,7 +40,7 @@ var (
 	ErrInvalidHeader     = errors.New("invalid header")
 	ErrIncorrectPassword = errors.New("incorrect password")
 	ErrReadOverflow      = errors.New("read overflow")
-	ErrReadIncompleted   = errors.New("incomplete read")
+	ErrReadIncomplete    = errors.New("incomplete read")
 	ErrFailedToGetBuffer = errors.New("failed to get buffer from pool")
 
 	//nolint:gochecknoglobals // buffer for reading raw encrypted data
@@ -63,11 +63,11 @@ type Reader struct {
 }
 
 type Header struct {
-	MetaData       [metaDataLen]byte
-	RootSalt       [rootSaltLen]byte
-	ValidationSalt [validationSaltLen]byte
-	ValidationKey  [validationKeyLen]byte
-	DecodeSalt     [decodeSaltLen]byte
+	MetaData       [MetaDataLen]byte
+	RootSalt       [RootSaltLen]byte
+	ValidationSalt [ValidationSaltLen]byte
+	ValidationKey  [ValidationKeyLen]byte
+	DecodeSalt     [DecodeSaltLen]byte
 	ChachaHeader   [chacha20poly1305.NonceSizeX]byte
 }
 
@@ -77,7 +77,6 @@ func NewReader(r io.Reader, password string) (*Reader, error) {
 		return nil, err
 	}
 
-	// create key argon2
 	argonKey := GetKey(h, password)
 
 	if err = ValidatePassword(h, argonKey); err != nil {
@@ -89,64 +88,67 @@ func NewReader(r io.Reader, password string) (*Reader, error) {
 		return nil, err
 	}
 
-	_ = dk
 	d, err := secretstream.NewDecryptor(dk, h.ChachaHeader[:])
 	if err != nil {
 		return nil, err
 	}
 
-	ts := binary.BigEndian.Uint64(h.MetaData[:8])
+	ro := Reader{reader: r, decryptor: d}
+	ro.SetTotalSize(h.MetaData[:8])
 
-	return &Reader{reader: r, decryptor: d, totalSize: ts}, nil
+	return &ro, nil
 }
 
 func (r *Reader) Read(p []byte) (int, error) {
-	// if we have decrypted data in buffer, return it
 	if len(r.decryptedData)-r.offset >= len(p) {
 		n := copy(p, r.decryptedData[r.offset:r.offset+len(p)])
-		r.offset += len(p)
+		r.offset += n
 
 		return n, nil
 	}
 
-	// if we have decrypted data in buffer, return it and get next chunk
-	var n int
-	if len(r.decryptedData)-r.offset > 0 {
+	n := 0
+	if r.offset < len(r.decryptedData) {
 		n = copy(p, r.decryptedData[r.offset:])
+		r.offset = len(r.decryptedData)
 	}
 
-	if err := r.getNextChunk(); err != nil {
-		if !errors.Is(err, io.EOF) {
-			return 0, err
-		}
-
-		// if we read some data, return it and ignore EOF, because it can be last chunk
-		if n == 0 {
+	if err := r.GetNextChunk(); err != nil {
+		if !errors.Is(err, io.EOF) || n == 0 {
 			return 0, err
 		}
 	}
 
-	lr := len(p) - n
-	if lr > 0 {
-		if lr > len(r.decryptedData) {
-			lr = len(r.decryptedData)
+	if len(r.decryptedData) == 0 {
+		if n > 0 {
+			return n, nil
 		}
 
-		n += copy(p[n:], r.decryptedData[0:lr])
-		r.offset = lr
+		return 0, io.EOF
 	}
+
+	m := copy(p[n:], r.decryptedData)
+	n += m
+	r.offset = m
 
 	return n, nil
 }
 
-func (r *Reader) getNextChunk() error {
+func (r *Reader) SetTotalSize(size []byte) {
+	r.totalSize = binary.BigEndian.Uint64(size)
+}
+
+func (r *Reader) IncTotalRead(size uint64) {
+	r.totalRead += size
+}
+
+func (r *Reader) GetNextChunk() error {
 	b, ok := bufferPool.Get().(*[]byte)
 	if !ok {
 		return ErrFailedToGetBuffer
 	}
 	defer bufferPool.Put(b)
 
-	clear(r.decryptedData)
 	r.decryptedData = r.decryptedData[:0]
 	r.offset = 0
 
@@ -163,45 +165,46 @@ func (r *Reader) getNextChunk() error {
 	}
 
 	if n == 0 {
-		// EOF
-		return nil
+		return io.EOF
 	}
 
-	var t byte
-	r.decryptedData, t, err = r.decryptor.Pull((*b)[:n])
+	decrypted, _, err := r.decryptor.Pull((*b)[:n])
 	if err != nil {
 		return err
 	}
 
+	r.decryptedData = append(r.decryptedData[:0], decrypted...)
 	if uint64(len(r.decryptedData))+r.totalRead > r.totalSize {
 		return ErrReadOverflow
 	}
 
-	r.totalRead += uint64(len(r.decryptedData))
-
-	_ = t
+	r.IncTotalRead(uint64(len(r.decryptedData)))
 
 	return nil
 }
 
+// Close - close reader and check if all data was read.
 func (r *Reader) Close() error {
 	if r.totalSize != r.totalRead {
-		return ErrReadIncompleted
+		return ErrReadIncomplete
 	}
 
 	return nil
 }
 
 func ReadHeader(r io.Reader) (*Header, error) {
-	// read headers
-	b := make([]byte, headerSize)
+	b := make([]byte, HeaderSize)
 
 	n, err := io.ReadFull(r, b)
-	if err != nil && errors.Is(err, io.ErrUnexpectedEOF) {
+	if err != nil {
+		if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
+			return nil, ErrInvalidHeader
+		}
+
 		return nil, err
 	}
 
-	if n < headerSize || !strings.HasPrefix(string(b), securetarMagic) {
+	if n != HeaderSize || !bytes.HasPrefix(b, []byte(SecuretarMagic)) {
 		return nil, ErrInvalidHeader
 	}
 
@@ -216,22 +219,22 @@ func ReadHeader(r io.Reader) (*Header, error) {
 	// #  - 32 bytes validation key
 	// #  - 16 bytes validation salt
 	// #  - 24 bytes cipher header + nonce
-	rh := securetarMagicLen
+	rh := SecuretarMagicLen
 
-	copy(h.MetaData[:], b[rh:rh+metaDataLen]) // metadata
-	rh += metaDataLen
+	copy(h.MetaData[:], b[rh:rh+MetaDataLen]) // metadata
+	rh += MetaDataLen
 
-	copy(h.RootSalt[:], b[rh:rh+rootSaltLen]) // rootSalt
-	rh += rootSaltLen
+	copy(h.RootSalt[:], b[rh:rh+RootSaltLen]) // rootSalt
+	rh += RootSaltLen
 
-	copy(h.ValidationSalt[:], b[rh:rh+validationSaltLen]) // Validation key salt
-	rh += validationSaltLen
+	copy(h.ValidationSalt[:], b[rh:rh+ValidationSaltLen]) // Validation key salt
+	rh += ValidationSaltLen
 
-	copy(h.ValidationKey[:], b[rh:rh+validationKeyLen]) // Validation derived key
-	rh += validationKeyLen
+	copy(h.ValidationKey[:], b[rh:rh+ValidationKeyLen]) // Validation derived key
+	rh += ValidationKeyLen
 
-	copy(h.DecodeSalt[:], b[rh:rh+decodeSaltLen]) // Secret stream key salt
-	rh += decodeSaltLen
+	copy(h.DecodeSalt[:], b[rh:rh+DecodeSaltLen]) // Secret stream key salt
+	rh += DecodeSaltLen
 
 	copy(h.ChachaHeader[:], b[rh:rh+chacha20poly1305.NonceSizeX]) // Cipher header
 
@@ -253,7 +256,7 @@ func GetBlake2bKey(key []byte, salt [16]byte) ([]byte, error) {
 	// golang not support salt and personal in standart lib issue https://github.com/golang/go/issues/32447
 	// after close issue replace archive package "github.com/minio/blake2b-simd" to "golang.org/x/crypto/blake2b"
 	h, err := blake2b.New(&blake2b.Config{
-		Size:   validationKeyLen,
+		Size:   ValidationKeyLen,
 		Key:    key,
 		Salt:   salt[:],
 		Person: []byte(blake2bPerson),
