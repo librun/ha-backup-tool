@@ -49,7 +49,7 @@ function make_release() {
 
 cleanup
 
-touch ${BUILD_DIR}/checksum.txt
+touch ${BUILD_DIR}/checksum-md5.txt
 touch ${BUILD_DIR}/checksum-sha256.txt
 
 make_release 386 linux "${NAME}-linux-i386"
