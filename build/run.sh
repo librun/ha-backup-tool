@@ -5,10 +5,7 @@ BUILD_PATH="."
 NAME="ha-backup-tool"
 export VERSION=$(cat ${BUILD_PATH}/../main.go | grep -i -E "AppVersion\s+=" | cut -d'=' -f2 | tr -d '"' | tr -d '[:space:]')
 
-echo "Application version ${VERSION}"
-echo "Build path ${CURRENT_DIR}"
-
-cleanup() {
+function cleanup() {
     rm -f ${BUILD_PATH}/checksum*.txt
     rm -f ${BUILD_PATH}/ha-backup-tool*.tar.gz
     rm -f ${BUILD_PATH}/ha-backup-tool*.zip
@@ -48,22 +45,47 @@ function make_release() {
     rm -r "${dir}"
 }
 
-cleanup
+function build() {
+    version
+    echo "Build path ${CURRENT_DIR}"
 
-touch ${BUILD_PATH}/checksum-md5.txt
-touch ${BUILD_PATH}/checksum-sha256.txt
+    cleanup
 
-make_release 386 linux "${NAME}-linux-i386"
-make_release amd64 linux "${NAME}-linux-amd64"
-make_release arm64 linux "${NAME}-linux-arm64"
+    touch ${BUILD_PATH}/checksum-md5.txt
+    touch ${BUILD_PATH}/checksum-sha256.txt
 
-make_release 386 windows "${NAME}-win32" .exe
-make_release amd64 windows "${NAME}-win64" .exe
-make_release arm64 windows "${NAME}-win-arm64" .exe
+    make_release 386 linux "${NAME}-linux-i386"
+    make_release amd64 linux "${NAME}-linux-amd64"
+    make_release arm64 linux "${NAME}-linux-arm64"
 
-make_release amd64 darwin "${NAME}-darwin-amd64"
-make_release arm64 darwin "${NAME}-darwin-arm64"
+    make_release 386 windows "${NAME}-win32" .exe
+    make_release amd64 windows "${NAME}-win64" .exe
+    make_release arm64 windows "${NAME}-win-arm64" .exe
 
-echo "############################"
-echo "## Completed successfully ##"
-echo "############################"
+    make_release amd64 darwin "${NAME}-darwin-amd64"
+    make_release arm64 darwin "${NAME}-darwin-arm64"
+
+    echo "############################"
+    echo "## Completed successfully ##"
+    echo "############################"
+}
+
+function help() {
+    echo "build - build binary and create archives"
+}
+
+function version() {
+    echo "Application version ${VERSION}"
+}
+
+################
+##### RUN ######
+################
+CMD=$1
+
+if [[ "" == "$CMD" ]]; then
+    help
+else
+    echo "run $@"
+    $CMD
+fi

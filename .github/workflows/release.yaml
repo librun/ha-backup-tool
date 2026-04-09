@@ -4,11 +4,32 @@ on:
   workflow_dispatch: {}
 
 # env:
-
+permissions:
+  contents: write
 
 jobs:
   # =================================================================
-  # STEP 1: Run tests
+  # STEP 1: Check version
+  # =================================================================
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run get version
+        run: |
+          source ./build/run.sh version
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+      - name: Check version exists
+        run: |
+          git fetch --tags
+          TAG="v${VERSION}"
+
+          if git tag -l "$TAG" | grep -q "$TAG"; then
+            echo "Tag already exists"
+            exit 1
+          fi
+
+  # =================================================================
+  # STEP 2: Run tests
   # =================================================================
   test:
     runs-on: ubuntu-latest
@@ -30,7 +51,7 @@ jobs:
           govulncheck ./...
 
   # =================================================================
-  # STEP 2: Build binary for multi platform
+  # STEP 3: Build binary for multi platform
   # =================================================================
   build_release:
     runs-on: ubuntu-latest
@@ -44,21 +65,19 @@ jobs:
         with:
           go-version: '1.26'
 
-      - name: Make release executable
-        run: chmod +x ./build/release.sh
+      - name: Make run.sh executable
+        run: chmod +x ./build/run.sh
 
       - name: Run release script
         run: |
-          pwd
           cd build
-          pwd
-          source ./release.sh
+          source ./run.sh build
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: "v${VERSION}"
+          tag_name: "v${{ env.VERSION }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

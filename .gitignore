@@ -1,7 +1,6 @@
 /source_script/
 /build/checksum*\.txt
-/build/ha-backup-tool*\.tar\.gz
-/build/ha-backup-tool*\.zip
+/build/ha-backup-tool*
 /cli-docs.md
 /test_data/local
 
