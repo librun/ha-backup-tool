@@ -6,6 +6,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/openziti/secretstream"
 	"golang.org/x/crypto/chacha20poly1305"
 
 	v3 "github.com/librun/ha-backup-tool/internal/decryptor/v3"
@@ -204,4 +205,128 @@ func TestReader_Close_Complete(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
+}
+
+func TestReader_Read_Success(t *testing.T) {
+	plaintext := []byte("hello securetar v3")
+	stream := buildTestV3Stream(t, "password123", plaintext, uint64(len(plaintext)))
+
+	r, err := v3.NewReader(bytes.NewReader(stream), "password123")
+	if err != nil {
+		t.Fatalf("NewReader failed: %v", err)
+	}
+
+	got, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("ReadAll failed: %v", err)
+	}
+
+	if !bytes.Equal(got, plaintext) {
+		t.Errorf("Expected %q, got %q", plaintext, got)
+	}
+
+	if err := r.Close(); err != nil {
+		t.Errorf("Close failed: %v", err)
+	}
+}
+
+func TestReader_Read_PartialBuffer(t *testing.T) {
+	plaintext := []byte("split read test data")
+	stream := buildTestV3Stream(t, "password123", plaintext, uint64(len(plaintext)))
+
+	r, err := v3.NewReader(bytes.NewReader(stream), "password123")
+	if err != nil {
+		t.Fatalf("NewReader failed: %v", err)
+	}
+
+	var got []byte
+	buf := make([]byte, 5)
+
+	for {
+		n, err := r.Read(buf)
+		if n > 0 {
+			got = append(got, buf[:n]...)
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Read failed: %v", err)
+		}
+	}
+
+	if !bytes.Equal(got, plaintext) {
+		t.Errorf("Expected %q, got %q", plaintext, got)
+	}
+
+	if err := r.Close(); err != nil {
+		t.Errorf("Close failed: %v", err)
+	}
+}
+
+func TestReader_Read_Overflow(t *testing.T) {
+	plaintext := []byte("overflow")
+	stream := buildTestV3Stream(t, "password123", plaintext, uint64(len(plaintext)-1))
+
+	r, err := v3.NewReader(bytes.NewReader(stream), "password123")
+	if err != nil {
+		t.Fatalf("NewReader failed: %v", err)
+	}
+
+	buf := make([]byte, 16)
+	_, err = r.Read(buf)
+	if err != v3.ErrReadOverflow {
+		t.Fatalf("Expected ErrReadOverflow, got %v", err)
+	}
+}
+
+func buildTestV3Stream(t *testing.T, password string, plaintext []byte, totalSize uint64) []byte {
+	t.Helper()
+
+	h := &v3.Header{}
+	copy(h.RootSalt[:], []byte("rootSalt12345678"))
+	copy(h.ValidationSalt[:], []byte("validSalt1234567"))
+	copy(h.DecodeSalt[:], []byte("decodeSalt123456"))
+
+	argonKey := v3.GetKey(h, password)
+	validationKey, err := v3.GetBlake2bKey(argonKey, h.ValidationSalt)
+	if err != nil {
+		t.Fatalf("GetBlake2bKey failed: %v", err)
+	}
+	copy(h.ValidationKey[:], validationKey)
+
+	decodeKey, err := v3.GetBlake2bKey(argonKey, h.DecodeSalt)
+	if err != nil {
+		t.Fatalf("GetBlake2bKey failed: %v", err)
+	}
+
+	encryptor, header, err := secretstream.NewEncryptor(decodeKey)
+	if err != nil {
+		t.Fatalf("NewEncryptor failed: %v", err)
+	}
+	copy(h.ChachaHeader[:], header)
+
+	binary.BigEndian.PutUint64(h.MetaData[:8], totalSize)
+
+	buf := make([]byte, v3.HeaderSize)
+	copy(buf[0:v3.SecuretarMagicLen], []byte(v3.SecuretarMagic))
+	rh := v3.SecuretarMagicLen
+	copy(buf[rh:rh+v3.MetaDataLen], h.MetaData[:])
+	rh += v3.MetaDataLen
+	copy(buf[rh:rh+v3.RootSaltLen], h.RootSalt[:])
+	rh += v3.RootSaltLen
+	copy(buf[rh:rh+v3.ValidationSaltLen], h.ValidationSalt[:])
+	rh += v3.ValidationSaltLen
+	copy(buf[rh:rh+v3.ValidationKeyLen], h.ValidationKey[:])
+	rh += v3.ValidationKeyLen
+	copy(buf[rh:rh+v3.DecodeSaltLen], h.DecodeSalt[:])
+	rh += v3.DecodeSaltLen
+	copy(buf[rh:rh+chacha20poly1305.NonceSizeX], h.ChachaHeader[:])
+
+	encrypted, err := encryptor.Push(plaintext, secretstream.TagPush)
+	if err != nil {
+		t.Fatalf("Encryptor.Push failed: %v", err)
+	}
+
+	return append(buf, encrypted...)
 }
