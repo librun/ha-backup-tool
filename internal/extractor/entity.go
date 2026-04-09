@@ -1,65 +1,87 @@
 package extractor
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
+	"io"
+	"os"
 
 	decryptor "github.com/librun/ha-backup-tool/internal/decryptor"
+	"github.com/librun/ha-backup-tool/internal/entity"
+	"github.com/librun/ha-backup-tool/internal/logger"
 )
 
-type (
-	HomeAssistantBackup struct {
-		Slug              string    `json:"slug"`
-		Version           int       `json:"version"`
-		Name              string    `json:"name"`
-		Date              time.Time `json:"date"`
-		Type              string    `json:"type"`
-		SupervisorVersion string    `json:"supervisor_version"`
-		Crypto            string    `json:"crypto"`
-		Protected         bool      `json:"protected"`
-		Compressed        bool      `json:"compressed"`
-		Homeassistant     struct {
-			Version         string  `json:"version"`
-			ExcludeDatabase bool    `json:"exclude_database"`
-			Size            float64 `json:"size"`
-		} `json:"homeassistant"`
-		Extra struct {
-			InstanceID                  string    `json:"instance_id"`
-			WithAutomaticSettings       bool      `json:"with_automatic_settings"`
-			SupervisorBackupRequestDate time.Time `json:"supervisor.backup_request_date"`
-		} `json:"extra"`
-		Repositories []string `json:"repositories"`
+type BackupConfig struct {
+	e         *entity.HomeAssistantBackup
+	decryptor decryptor.Decryptor `json:"-"`
+}
 
-		decryptor decryptor.Decryptor `json:"-"`
+func NewBackupConfig(compressed bool) *BackupConfig {
+	return &BackupConfig{e: &entity.HomeAssistantBackup{Compressed: compressed}}
+}
+
+func BackupConfigUnmarshalJSON(fpath string) (*BackupConfig, error) {
+	var bc BackupConfig
+	fo, err := os.Open(fpath)
+	if err != nil {
+		return nil, err
 	}
-)
+	defer func() {
+		if err = fo.Close(); err != nil {
+			logger.Fatalf("File: %s Error close file: %v", fpath, err)
+		}
+	}()
 
-func (e *HomeAssistantBackup) InitAndValidate() error {
+	b, err := io.ReadAll(fo)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = json.Unmarshal(b, &bc.e); err != nil {
+		return nil, err
+	}
+
+	return &bc, nil
+}
+
+func (b *BackupConfig) InitAndValidate() error {
 	var vs bool
 
 	var errD error
-	if e.decryptor, errD = decryptor.ParseFromString(e.Crypto); errD != nil {
+	if b.decryptor, errD = decryptor.ParseFromBackupJSON(b.e, b.decryptor); errD != nil {
 		if errors.Is(errD, decryptor.ErrDecryptorUnknown) {
-			return fmt.Errorf("crypto type %s not support", e.Crypto) //nolint:err113 // Dynamic error
+			return fmt.Errorf("crypto type %s not support", b.e.Crypto) //nolint:err113 // Dynamic error
 		}
 
 		return errD
 	}
 
 	for _, s := range backupJSONVersionSupport {
-		if s == e.Version {
+		if s == b.e.Version {
 			vs = true
 		}
 	}
 
 	if !vs {
-		return fmt.Errorf("version backup %d not support", e.Version) //nolint:err113 // Dynamic error
+		return fmt.Errorf("version backup %d not support", b.e.Version) //nolint:err113 // Dynamic error
 	}
 
 	return nil
 }
 
-func (e *HomeAssistantBackup) GetDecryptor() decryptor.Decryptor {
-	return e.decryptor
+func (b *BackupConfig) GetDecryptor() decryptor.Decryptor {
+	return b.decryptor
+}
+
+func (b *BackupConfig) SetProtected(v bool) {
+	b.e.Protected = v
+}
+
+func (b *BackupConfig) IsProtected() bool {
+	return b.e.Protected
+}
+
+func (b *BackupConfig) IsCompressed() bool {
+	return b.e.Compressed
 }
