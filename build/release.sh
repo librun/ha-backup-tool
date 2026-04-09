@@ -1,16 +1,14 @@
 #!/usr/bin/env bash
 
-CURRENT_DIR=$(dirname "$(realpath $0)")
-BUILD_DIR="${CURRENT_DIR}/build"
 NAME="ha-backup-tool"
-export VERSION=$(cat ./main.go | grep -i -E "AppVersion\s+=" | cut -d'=' -f2 | tr -d '"' | tr -d '[:space:]')
+export VERSION=$(cat ../main.go | grep -i -E "AppVersion\s+=" | cut -d'=' -f2 | tr -d '"' | tr -d '[:space:]')
 
 echo "Application version ${VERSION}"
 
 cleanup() {
-    if [[ -d ${BUILD_DIR} ]]; then
-      rm -rf ${BUILD_DIR}/*
-    fi
+    rm -f ./checksum*.txt
+    rm -f ./ha-backup-tool*.tar.gz
+    rm -f ./ha-backup-tool*.zip
 }
 
 function make_release() {
@@ -23,16 +21,15 @@ function make_release() {
     fi
     local ext="$4"
 
-    local dir="${BUILD_DIR}/${release_name}"
+    local dir="${release_name}"
 
     mkdir -p "${dir}"
-    env GOARCH="${arch}" GOOS="${os}" CGO_ENABLED=0 go build -o "${dir}/${NAME}${ext}"
+    env GOARCH="${arch}" GOOS="${os}" CGO_ENABLED=0 go build -o "${dir}/${NAME}${ext}" ../
 
-    cp LICENSE "${dir}"
-    cp README.md "${dir}"
-    #cp CHANGELOG.md "${dir}"
+    cp ../LICENSE "${dir}"
+    cp ../README.md "${dir}"
+    #cp ../CHANGELOG.md "${dir}"
 
-    cd ${BUILD_DIR}
     case "${os}" in
     linux | darwin)
         tar -zcvf "${release_name}.tar.gz" "${release_name}"
@@ -45,18 +42,13 @@ function make_release() {
         sha256sum "${release_name}.zip" >>checksum-sha256.txt
         ;;
     esac
-    rm -r "${release_name}"
-    cd ../
+    rm -r "${dir}"
 }
 
 cleanup
 
-if [[ ! -d ${BUILD_DIR} ]]; then
-  mkdir -p "${BUILD_DIR}"
-fi
-
-touch ${BUILD_DIR}/checksum-md5.txt
-touch ${BUILD_DIR}/checksum-sha256.txt
+touch ${BUILD_PATH}/checksum-md5.txt
+touch ${BUILD_PATH}/checksum-sha256.txt
 
 make_release 386 linux "${NAME}-linux-i386"
 make_release amd64 linux "${NAME}-linux-amd64"

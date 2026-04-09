@@ -49,6 +49,7 @@ jobs:
 
       - name: Run release script
         run: |
+          cd build
           source ./release.sh
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
