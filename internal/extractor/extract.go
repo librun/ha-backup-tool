@@ -36,8 +36,6 @@ var (
 
 // Extract - start unpack archive.
 func Extract(file string, ops *options.CmdExtractOptions) error {
-	var successCount int
-
 	fmt.Printf("📦 Extracting %s...\n", file)
 	d, err := ExtractBackup(file, ops)
 	if err != nil {
@@ -84,7 +82,6 @@ func Extract(file string, ops *options.CmdExtractOptions) error {
 				return
 			}
 
-			// Remove the file after successful extraction
 			if errR := os.Remove(st); errR != nil {
 				if ops.Verbose {
 					fmt.Printf("❌ Failed delete file: %s/%s Error: %s\n", file, filepath.Base(st), errR)
@@ -94,8 +91,6 @@ func Extract(file string, ops *options.CmdExtractOptions) error {
 
 				return
 			}
-
-			successCount++
 		}()
 	}
 
@@ -137,7 +132,7 @@ func ExtractBackup(file string, ops *options.CmdExtractOptions) ([]string, error
 	return fl, errE
 }
 
-// ValidateTarFile - validate tar file is exist and other.
+// ValidateTarFile validates that the provided path exists and points to a tar archive.
 func ValidateTarFile(p string) error {
 	s, err := os.Stat(p)
 	if err != nil {
@@ -256,7 +251,7 @@ func getBackupJSON(file string, fl []string, ops *options.CmdExtractOptions) (*B
 	return e, nil
 }
 
-func newTarGzReader(filename, passwd string, protected bool, encrypt decryptor.Decryptor) (*tarGzReader, error) {
+func newTarGzReader(filename, passwd string, protected bool, decrypt decryptor.Decryptor) (*tarGzReader, error) {
 	var re tarGzReader
 
 	var err error
@@ -271,7 +266,7 @@ func newTarGzReader(filename, passwd string, protected bool, encrypt decryptor.D
 		return &re, nil
 	}
 
-	re.ReadCloser, err = decryptor.New(re.file, encrypt, passwd)
+	re.ReadCloser, err = decryptor.New(re.file, decrypt, passwd)
 	if err != nil {
 		return nil, err
 	}
@@ -301,7 +296,11 @@ func extractTarGz(r io.Reader, filename, outputDir string, ops *options.CmdExtra
 		dir = filepath.Join(filepath.Dir(filename), tarextractor.GetBaseNameArchive(filename))
 	}
 
-	te := tarextractor.New(dir, ops)
+	sOps := *ops
+	sOps.Include = nil
+	sOps.Exclude = nil
+
+	te := tarextractor.New(dir, &sOps)
 	_, fs, errE := te.Run(rg)
 	if len(fs) > 0 {
 		bn := filepath.Base(filename)

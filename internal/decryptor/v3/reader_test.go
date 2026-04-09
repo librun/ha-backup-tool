@@ -3,6 +3,7 @@ package v3_test
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"io"
 	"testing"
 
@@ -54,7 +55,7 @@ func TestReadHeader_InvalidMagic(t *testing.T) {
 
 	r := bytes.NewReader(headerData)
 	_, err := v3.ReadHeader(r)
-	if err != v3.ErrInvalidHeader {
+	if !errors.Is(err, v3.ErrInvalidHeader) {
 		t.Errorf("Expected ErrInvalidHeader, got %v", err)
 	}
 }
@@ -63,7 +64,7 @@ func TestReadHeader_ShortRead(t *testing.T) {
 	headerData := make([]byte, v3.HeaderSize-1)
 	r := bytes.NewReader(headerData)
 	_, err := v3.ReadHeader(r)
-	if err != v3.ErrInvalidHeader {
+	if !errors.Is(err, v3.ErrInvalidHeader) {
 		t.Errorf("Expected ErrInvalidHeader, got %v", err)
 	}
 }
@@ -120,7 +121,7 @@ func TestValidatePassword_Incorrect(t *testing.T) {
 	wrongKey[0] = 1
 
 	err := v3.ValidatePassword(h, wrongKey)
-	if err != v3.ErrIncorrectPassword {
+	if !errors.Is(err, v3.ErrIncorrectPassword) {
 		t.Errorf("Expected ErrIncorrectPassword, got %v", err)
 	}
 }
@@ -145,7 +146,7 @@ func TestNewReader_IncorrectPassword(t *testing.T) {
 
 	r := bytes.NewReader(headerData)
 	_, err := v3.NewReader(r, "wrongpassword")
-	if err != v3.ErrIncorrectPassword {
+	if !errors.Is(err, v3.ErrIncorrectPassword) {
 		t.Errorf("Expected ErrIncorrectPassword, got %v", err)
 	}
 }
@@ -184,7 +185,7 @@ func TestReader_Read_EOF(t *testing.T) {
 
 	buf := make([]byte, 10)
 	n, err := r.Read(buf)
-	if n != 0 || err != io.EOF {
+	if n != 0 || !errors.Is(err, io.EOF) {
 		t.Errorf("Expected 0, io.EOF, got %d, %v", n, err)
 	}
 }
@@ -193,7 +194,7 @@ func TestReader_Close_Incomplete(t *testing.T) {
 	r := &v3.Reader{TotalRead: 50, TotalSize: 100}
 
 	err := r.Close()
-	if err != v3.ErrReadIncomplete {
+	if !errors.Is(err, v3.ErrReadIncomplete) {
 		t.Errorf("Expected ErrReadIncomplete, got %v", err)
 	}
 }
@@ -225,7 +226,7 @@ func TestReader_Read_Success(t *testing.T) {
 		t.Errorf("Expected %q, got %q", plaintext, got)
 	}
 
-	if err := r.Close(); err != nil {
+	if err = r.Close(); err != nil {
 		t.Errorf("Close failed: %v", err)
 	}
 }
@@ -243,15 +244,15 @@ func TestReader_Read_PartialBuffer(t *testing.T) {
 	buf := make([]byte, 5)
 
 	for {
-		n, err := r.Read(buf)
+		n, errR := r.Read(buf)
 		if n > 0 {
 			got = append(got, buf[:n]...)
 		}
-		if err == io.EOF {
+		if errors.Is(errR, io.EOF) {
 			break
 		}
-		if err != nil {
-			t.Fatalf("Read failed: %v", err)
+		if errR != nil {
+			t.Fatalf("Read failed: %v", errR)
 		}
 	}
 
@@ -259,7 +260,7 @@ func TestReader_Read_PartialBuffer(t *testing.T) {
 		t.Errorf("Expected %q, got %q", plaintext, got)
 	}
 
-	if err := r.Close(); err != nil {
+	if err = r.Close(); err != nil {
 		t.Errorf("Close failed: %v", err)
 	}
 }
@@ -275,7 +276,7 @@ func TestReader_Read_Overflow(t *testing.T) {
 
 	buf := make([]byte, 16)
 	_, err = r.Read(buf)
-	if err != v3.ErrReadOverflow {
+	if !errors.Is(err, v3.ErrReadOverflow) {
 		t.Fatalf("Expected ErrReadOverflow, got %v", err)
 	}
 }
@@ -308,25 +309,32 @@ func buildTestV3Stream(t *testing.T, password string, plaintext []byte, totalSiz
 
 	binary.BigEndian.PutUint64(h.MetaData[:8], totalSize)
 
-	buf := make([]byte, v3.HeaderSize)
-	copy(buf[0:v3.SecuretarMagicLen], []byte(v3.SecuretarMagic))
-	rh := v3.SecuretarMagicLen
-	copy(buf[rh:rh+v3.MetaDataLen], h.MetaData[:])
-	rh += v3.MetaDataLen
-	copy(buf[rh:rh+v3.RootSaltLen], h.RootSalt[:])
-	rh += v3.RootSaltLen
-	copy(buf[rh:rh+v3.ValidationSaltLen], h.ValidationSalt[:])
-	rh += v3.ValidationSaltLen
-	copy(buf[rh:rh+v3.ValidationKeyLen], h.ValidationKey[:])
-	rh += v3.ValidationKeyLen
-	copy(buf[rh:rh+v3.DecodeSaltLen], h.DecodeSalt[:])
-	rh += v3.DecodeSaltLen
-	copy(buf[rh:rh+chacha20poly1305.NonceSizeX], h.ChachaHeader[:])
+	headerBytes := makeV3HeaderBytes(h, totalSize)
 
 	encrypted, err := encryptor.Push(plaintext, secretstream.TagPush)
 	if err != nil {
 		t.Fatalf("Encryptor.Push failed: %v", err)
 	}
 
-	return append(buf, encrypted...)
+	return append(headerBytes, encrypted...)
+}
+
+func makeV3HeaderBytes(h *v3.Header, totalSize uint64) []byte {
+	buf := make([]byte, 0, v3.HeaderSize)
+
+	magic := make([]byte, v3.SecuretarMagicLen)
+	copy(magic, []byte(v3.SecuretarMagic))
+	buf = append(buf, magic...)
+
+	meta := make([]byte, v3.MetaDataLen)
+	binary.BigEndian.PutUint64(meta[:8], totalSize)
+	buf = append(buf, meta...)
+
+	buf = append(buf, h.RootSalt[:]...)
+	buf = append(buf, h.ValidationSalt[:]...)
+	buf = append(buf, h.ValidationKey[:]...)
+	buf = append(buf, h.DecodeSalt[:]...)
+	buf = append(buf, h.ChachaHeader[:]...)
+
+	return buf
 }

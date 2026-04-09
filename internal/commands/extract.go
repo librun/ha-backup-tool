@@ -47,7 +47,7 @@ func Extract() *cli.Command {
 			&cli.StringFlag{
 				Name:    flags.ExtractCrypto,
 				Aliases: []string{"c"},
-				Usage:   "Type cryptography for decode archive",
+				Usage:   "Version SecureTar v2, v3 and etc",
 			},
 			&cli.StringFlag{
 				Name:    flags.ExtractOutput,
