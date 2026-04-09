@@ -14,6 +14,8 @@ jobs:
   version:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
       - name: Run get version
         run: |
           source ./build/run.sh version
@@ -33,6 +35,7 @@ jobs:
   # =================================================================
   test:
     runs-on: ubuntu-latest
+    needs: version
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -74,16 +77,18 @@ jobs:
           source ./run.sh build
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
-      - name: Create GitHub Release
+      - name: Create GitHub Pre-release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: "v${{ env.VERSION }}"
+          prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload binaries to Release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: "v${{ env.VERSION }}"
           files: build/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
