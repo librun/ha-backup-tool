@@ -68,10 +68,6 @@ func ParseFromString(s string) (Decryptor, error) {
 }
 
 func ParseFromBackupJSON(e *entity.HomeAssistantBackup, d Decryptor) (Decryptor, error) {
-	if !strings.EqualFold(e.Crypto, cryptoAES128) {
-		return 0, ErrDecryptorUnknown
-	}
-
 	if d != DecryptorSecureTarAuto {
 		return d, nil
 	}
@@ -95,6 +91,10 @@ func ParseFromBackupJSON(e *entity.HomeAssistantBackup, d Decryptor) (Decryptor,
 	}
 
 	if !vsc.Check(vs) || !vcc.Check(vc) {
+		if !strings.EqualFold(e.Crypto, cryptoAES128) {
+			return 0, ErrDecryptorUnknown
+		}
+
 		return DecryptorSecureTarV2, nil
 	}
 
