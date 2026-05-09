@@ -4,7 +4,13 @@ Tool for work with Home Assistant Backup
 # Install
 
 ## Windows
-### Download binary
+### Way 1 - Install by winget
+1. Run powershell
+2. Run command
+```
+winget install ha-backup-tool
+```
+### Way 2 - Download binary
 Open [link](https://github.com/librun/ha-backup-tool/releases) choose platrom and download file   
 for windows - files ends with win-arm64.zip or win32.zip or win64.zip
 Unpack file and use
